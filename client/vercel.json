@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://digihub-9vaj.onrender.com/api/:path*"
+      "destination": "https://digihub-acst.onrender.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://digihub-9vaj.onrender.com/uploads/:path*"
+      "destination": "https://digihub-acst.onrender.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
