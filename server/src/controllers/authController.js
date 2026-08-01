@@ -483,9 +483,9 @@ exports.uploadProfilePicture = async (req, res, next) => {
             throw new Error('User not found');
         }
 
-        // Only Participants and Association Members need to be winners to upload a profile picture.
-        // Admins, Faculty, and other staff roles can upload freely.
-        const restrictedRoles = ['Participant', 'Association Member'];
+        // Only Participants need to be winners to upload a profile picture.
+        // Admins, Faculty, Association Members and other staff roles can upload freely.
+        const restrictedRoles = ['Participant'];
         if (restrictedRoles.includes(user.role)) {
             const Winner = require('../models/Winner');
             const winnerRecord = await Winner.findOne({ participant: user._id });
