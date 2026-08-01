@@ -87,7 +87,7 @@ const Profile = () => {
     // Check if the current student user has any winner records
     useEffect(() => {
         const checkWinnerStatus = async () => {
-            if (user && (user.role === 'Participant' || user.role === 'Association Member')) {
+            if (user && user.role === 'Participant') {
                 try {
                     const res = await axios.get('/api/winners/my-status');
                     setIsWinner(res.data && res.data.length > 0 ? res.data[0] : false);
@@ -95,7 +95,7 @@ const Profile = () => {
                     setIsWinner(false);
                 }
             } else if (user) {
-                // Non-student roles (Admin, Faculty, etc.) can always upload
+                // Non-student roles (Admin, Faculty, Association Member, etc.) can always upload
                 setIsWinner(true);
             }
         };
