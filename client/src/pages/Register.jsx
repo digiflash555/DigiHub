@@ -116,7 +116,8 @@ const Register = () => {
                                         type="text"
                                         name="registrationNumber"
                                         className="input-premium pl-14"
-                                        placeholder="ST12345 (optional)"
+                                        placeholder="ST12345"
+                                        required
                                         value={formData.registrationNumber}
                                         onChange={handleChange}
                                     />
@@ -133,6 +134,7 @@ const Register = () => {
                                         type="date"
                                         name="dateOfBirth"
                                         className="input-premium pl-14"
+                                        required
                                         value={formData.dateOfBirth}
                                         onChange={handleChange}
                                     />
@@ -144,6 +146,7 @@ const Register = () => {
                                     <select
                                         name="gender"
                                         className="input-premium pl-4"
+                                        required
                                         value={formData.gender}
                                         onChange={handleChange}
                                     >
@@ -162,6 +165,7 @@ const Register = () => {
                                     <select
                                         name="yearAndDept"
                                         className="input-premium pl-4"
+                                        required
                                         value={formData.yearAndDept}
                                         onChange={handleChange}
                                     >
@@ -247,6 +251,7 @@ const Register = () => {
                                     <select
                                         name="section"
                                         className="input-premium pl-4"
+                                        required
                                         value={formData.section}
                                         onChange={handleChange}
                                     >
@@ -267,6 +272,7 @@ const Register = () => {
                                     name="passoutYear"
                                     className="input-premium pl-4"
                                     placeholder="e.g., 2026"
+                                    required
                                     value={formData.passoutYear}
                                     onChange={handleChange}
                                 />
@@ -315,6 +321,7 @@ const Register = () => {
                                     name="phone"
                                     className="input-premium pl-14"
                                     placeholder="+1 234 567 8900"
+                                    required
                                     value={formData.phone}
                                     onChange={handleChange}
                                 />
@@ -330,6 +337,7 @@ const Register = () => {
                                     className="input-premium pl-14 h-24 resize-none"
                                     placeholder="Tell us about yourself..."
                                     maxLength={500}
+                                    required
                                     value={formData.bio}
                                     onChange={handleChange}
                                 />
@@ -345,6 +353,7 @@ const Register = () => {
                                     name="skills"
                                     className="input-premium pl-14"
                                     placeholder="JavaScript, React, Python (comma separated)"
+                                    required
                                     value={formData.skills}
                                     onChange={handleChange}
                                 />
