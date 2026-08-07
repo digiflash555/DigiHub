@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Lock, Building2, ArrowRight, Loader2, ChevronRight, Sparkles, Phone, FileText, Tag, Calendar, Shield } from 'lucide-react';
+import { User, Mail, Lock, Building2, ArrowRight, Loader2, ChevronRight, Sparkles, Phone, FileText, Tag, Calendar, Shield, Upload, X, ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Register = () => {
@@ -26,6 +26,8 @@ const Register = () => {
             favoriteHero: ''
         }
     });
+    const [signatureFile, setSignatureFile] = useState(null);
+    const [signaturePreview, setSignaturePreview] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -46,16 +48,44 @@ const Register = () => {
         }
     };
 
+    const handleSignatureChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.type !== 'image/png') {
+            toast.error('Only .png files are allowed for the signature.');
+            e.target.value = '';
+            return;
+        }
+        setSignatureFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => setSignaturePreview(reader.result);
+        reader.readAsDataURL(file);
+    };
+
+    const removeSignature = () => {
+        setSignatureFile(null);
+        setSignaturePreview(null);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!signatureFile) {
+            toast.error('Signature is required. Please upload your signature.');
+            return;
+        }
         setIsLoading(true);
         try {
-            // Convert skills string to array
+            // Convert skills string to array and build FormData for file upload
+            const fd = new FormData();
             const submitData = {
                 ...formData,
                 skills: formData.skills.split(',').map(s => s.trim()).filter(s => s !== '')
             };
-            const response = await axios.post(`/api/auth/register`, submitData);
+            fd.append('data', JSON.stringify(submitData));
+            if (signatureFile) fd.append('signature', signatureFile);
+            const response = await axios.post(`/api/auth/register`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             // Server returns flat user object with token
             login(response.data);
             toast.success('Account created! Welcome aboard 🎉');
@@ -406,6 +436,63 @@ const Register = () => {
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Upload Signature Section */}
+                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Upload Signature <span className="text-red-500">*</span></h3>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                                Only <span className="font-semibold text-slate-700 dark:text-slate-300">.png</span> files are allowed for the signature upload. If your signature has a background or is in another format,{' '}
+                                <a
+                                    href="https://www.remove.bg"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-500 dark:text-indigo-400 font-semibold underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                                >
+                                    click here
+                                </a>
+                                {' '}to remove the background and convert it to .png format before uploading.
+                            </p>
+
+                            {signaturePreview ? (
+                                <div className="relative rounded-2xl border-2 border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/5 p-4 flex flex-col items-center gap-3">
+                                    <img
+                                        src={signaturePreview}
+                                        alt="Signature preview"
+                                        className="max-h-28 object-contain rounded-lg"
+                                    />
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate max-w-full">{signatureFile?.name}</p>
+                                    <button
+                                        type="button"
+                                        onClick={removeSignature}
+                                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-100 dark:bg-red-500/20 text-red-500 hover:bg-red-200 dark:hover:bg-red-500/40 flex items-center justify-center transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <label
+                                    htmlFor="signature-upload"
+                                    className="flex flex-col items-center justify-center gap-3 w-full h-36 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-500/5 cursor-pointer transition-all duration-200 group"
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Upload className="w-6 h-6 text-indigo-500" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Click to upload signature</p>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">PNG only</p>
+                                    </div>
+                                    <input
+                                        id="signature-upload"
+                                        type="file"
+                                        accept=".png,image/png"
+                                        className="hidden"
+                                        onChange={handleSignatureChange}
+                                    />
+                                </label>
+                            )}
                         </div>
 
                         <button
