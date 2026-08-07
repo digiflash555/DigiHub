@@ -12,7 +12,7 @@ const {
 const { protect, authorize } = require('../middlewares/authMiddleware');
 
 // Public routes
-router.post('/register', register);
+router.post('/register', signatureUpload.single('signature'), register);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-security-answers', verifySecurityAnswers);
