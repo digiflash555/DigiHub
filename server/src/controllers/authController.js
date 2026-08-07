@@ -21,12 +21,22 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res, next) => {
     try {
-        const { username, email, password, registrationNumber, phone, bio, skills, dateOfBirth, signature, gender, yearAndDept, section, passoutYear, securityQuestions } = req.body;
+        // Support both multipart/form-data (with signature file) and plain JSON
+        let parsedBody = req.body;
+        if (req.body.data) {
+            try { parsedBody = JSON.parse(req.body.data); } catch (_) {}
+        }
+        const { username, email, password, registrationNumber, phone, bio, skills, dateOfBirth, signature, gender, yearAndDept, section, passoutYear, securityQuestions } = parsedBody;
 
         const userExists = await User.findOne({ email });
         if (userExists) {
             res.status(400);
             throw new Error('An account with this email already exists');
+        }
+
+        if (!req.file) {
+            res.status(400);
+            throw new Error('Signature is required. Please upload your signature as a .png file.');
         }
 
         // Public registration is ALWAYS Participant - role cannot be set externally
@@ -40,7 +50,7 @@ exports.register = async (req, res, next) => {
             bio: bio || '',
             skills: skills || [],
             dateOfBirth: dateOfBirth || undefined,
-            signature: signature || '',
+            signature: req.file ? req.file.path : (signature || ''),
             gender: gender || 'Male',
             yearAndDept: yearAndDept || 'I B.E. CSE',
             section: section || 'A',
