@@ -131,7 +131,7 @@ const Register = () => {
                                         type="text"
                                         name="username"
                                         className="input-premium pl-14"
-                                        placeholder="Murugan"
+                                        placeholder="Alok K"
                                         required
                                         value={formData.username}
                                         onChange={handleChange}
