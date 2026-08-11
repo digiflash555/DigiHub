@@ -61,8 +61,10 @@ exports.registerForEvent = async (req, res, next) => {
             throw new Error('Event not found');
         }
 
-        // Check registration deadline
-        if (new Date() > new Date(event.registrationDeadline)) {
+        // Check registration deadline (allow registration up to the end of the deadline date)
+        const deadlineDate = new Date(event.registrationDeadline);
+        deadlineDate.setHours(23, 59, 59, 999);
+        if (new Date() > deadlineDate) {
             res.status(400);
             throw new Error('Registration deadline has passed');
         }
