@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Calendar, MapPin, Clock, Users, ArrowRight, Share2, Shield, Info, Search, X, Handshake, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Clock, Users, ArrowRight, Share2, Shield, Info, Search, X, Handshake, Loader2, Mail, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const EventDetails = () => {
@@ -264,7 +264,13 @@ const EventDetails = () => {
     if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div></div>;
     if (!event) return null;
 
-    const registrationDeadlinePassed = new Date() > new Date(event.registrationDeadline);
+    const getDeadlineEnd = (dateStr) => {
+        if (!dateStr) return new Date(0);
+        const d = new Date(dateStr);
+        d.setHours(23, 59, 59, 999);
+        return d;
+    };
+    const registrationDeadlinePassed = new Date() > getDeadlineEnd(event.registrationDeadline);
     const maxTeams = event.participationType === 'Team' ? Math.floor(event.maxParticipants / event.minTeamSize) : 0;
     const isRegistrationLimitReached = event.participationType === 'Team' 
         ? (event.registeredParticipants >= event.maxParticipants || event.registeredTeams >= maxTeams)
@@ -479,21 +485,66 @@ const EventDetails = () => {
                                 {event.description}
                             </div>
 
-                            {/* Coordinators Section – visible to all logged-in users */}
-                            {(event.facultyCoordinator || event.studentCoordinator) && user && (
+                            {/* Coordinators Section */}
+                            {(event.facultyCoordinator || event.studentCoordinator) && (
                                 <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800">
-                                    <h3 className="text-xl font-bold text-gray-950 dark:text-white mb-4">Event Coordinators</h3>
+                                    <h3 className="text-xl font-bold text-gray-950 dark:text-white mb-4 flex items-center gap-2">
+                                        <Users className="w-5 h-5 text-indigo-500" />
+                                        Event Coordinators
+                                    </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {event.facultyCoordinator && (
-                                            <div className="p-5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
-                                                <p className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mb-2">Faculty Coordinator</p>
+                                            <div className="p-5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800 space-y-2">
+                                                <p className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Faculty Coordinator</p>
                                                 <p className="font-extrabold text-slate-900 dark:text-slate-100 text-base">{event.facultyCoordinator.username}</p>
+                                                {event.facultyCoordinator.email && (
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                                        <Mail className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                                        <a href={`mailto:${event.facultyCoordinator.email}`} className="hover:underline hover:text-indigo-600 transition-colors">
+                                                            {event.facultyCoordinator.email}
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {event.facultyCoordinator.phone ? (
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                                        <Phone className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                                        <a href={`tel:${event.facultyCoordinator.phone}`} className="hover:underline hover:text-indigo-600 transition-colors">
+                                                            {event.facultyCoordinator.phone}
+                                                        </a>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                                                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                                                        <span>Phone: N/A</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                         {event.studentCoordinator && (
-                                            <div className="p-5 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-2xl border border-violet-100 dark:border-violet-800">
-                                                <p className="text-[10px] font-black text-violet-500 dark:text-violet-400 uppercase tracking-widest mb-2">Student Coordinator</p>
+                                            <div className="p-5 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-2xl border border-violet-100 dark:border-violet-800 space-y-2">
+                                                <p className="text-[10px] font-black text-violet-500 dark:text-violet-400 uppercase tracking-widest">Student Coordinator</p>
                                                 <p className="font-extrabold text-slate-900 dark:text-slate-100 text-base">{event.studentCoordinator.username}</p>
+                                                {event.studentCoordinator.email && (
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                                        <Mail className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                                                        <a href={`mailto:${event.studentCoordinator.email}`} className="hover:underline hover:text-violet-600 transition-colors">
+                                                            {event.studentCoordinator.email}
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {event.studentCoordinator.phone ? (
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                                        <Phone className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                                                        <a href={`tel:${event.studentCoordinator.phone}`} className="hover:underline hover:text-violet-600 transition-colors">
+                                                            {event.studentCoordinator.phone}
+                                                        </a>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                                                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                                                        <span>Phone: N/A</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -518,6 +569,47 @@ const EventDetails = () => {
                                     </span>
                                 )}
                             </div>
+
+                            {/* Coordinator Contact Info inside Registration Form */}
+                            {(event.facultyCoordinator || event.studentCoordinator) && (
+                                <div className="mb-6 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 rounded-2xl">
+                                    <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                        <Users className="w-3.5 h-3.5" /> Need Help? Contact Event Coordinators
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                        {event.facultyCoordinator && (
+                                            <div className="space-y-1">
+                                                <p className="font-bold text-gray-900 dark:text-white">Faculty: {event.facultyCoordinator.username}</p>
+                                                {event.facultyCoordinator.email && (
+                                                    <p className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                                        <Mail className="w-3 h-3 text-indigo-500" /> {event.facultyCoordinator.email}
+                                                    </p>
+                                                )}
+                                                {event.facultyCoordinator.phone && (
+                                                    <p className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                                        <Phone className="w-3 h-3 text-indigo-500" /> {event.facultyCoordinator.phone}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {event.studentCoordinator && (
+                                            <div className="space-y-1">
+                                                <p className="font-bold text-gray-900 dark:text-white">Student: {event.studentCoordinator.username}</p>
+                                                {event.studentCoordinator.email && (
+                                                    <p className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                                        <Mail className="w-3 h-3 text-violet-500" /> {event.studentCoordinator.email}
+                                                    </p>
+                                                )}
+                                                {event.studentCoordinator.phone && (
+                                                    <p className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                                        <Phone className="w-3 h-3 text-violet-500" /> {event.studentCoordinator.phone}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Profile completion hint */}
                             {user && (!user.phone || !user.registrationNumber) && (
