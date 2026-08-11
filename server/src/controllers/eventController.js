@@ -5,20 +5,21 @@ const { createCloudinaryUpload } = require('../utils/cloudinaryUpload');
 
 const autoUpdateStatuses = async () => {
     try {
-        const events = await Event.find({ status: { $in: ['Open', 'Closed', 'Upcoming', 'Ongoing'] } });
+        // Include 'Completed' and 'Cancelled' so rescheduled events are also re-evaluated
+        const events = await Event.find({ status: { $in: ['Open', 'Closed', 'Upcoming', 'Ongoing', 'Completed'] } });
         const now = new Date();
         for (let event of events) {
-            if (!event.eventDate || !event.startTime || !event.endTime) continue;
+            if (!event.eventDate) continue;
             
             const year = event.eventDate.getUTCFullYear();
             const month = event.eventDate.getUTCMonth();
             const date = event.eventDate.getUTCDate();
             
-            const [startHours, startMinutes] = event.startTime.split(':').map(Number);
-            const startDateTime = new Date(year, month, date, startHours, startMinutes, 0, 0);
+            const [startHours, startMinutes] = (event.startTime || '00:00').split(':').map(Number);
+            const startDateTime = new Date(year, month, date, startHours || 0, startMinutes || 0, 0, 0);
 
-            const [endHours, endMinutes] = event.endTime.split(':').map(Number);
-            const endDateTime = new Date(year, month, date, endHours, endMinutes, 0, 0);
+            // End time is set to the end of the event date (23:59:59.999) so events remain active and open on their event date
+            const endDateTime = new Date(year, month, date, 23, 59, 59, 999);
             
             let newStatus = event.status;
             if (now < startDateTime) {
@@ -177,6 +178,14 @@ exports.updateEvent = async (req, res, next) => {
             new: true,
             runValidators: true,
         });
+
+        // Re-run status auto-update so that changing the event date immediately reflects the correct status
+        await autoUpdateStatuses();
+
+        // Fetch updated event (status may have changed by autoUpdateStatuses)
+        event = await Event.findById(req.params.id)
+            .populate('facultyCoordinator', 'username email phone')
+            .populate('studentCoordinator', 'username email phone');
 
         res.json(event);
     } catch (error) {
