@@ -2,12 +2,12 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
-const { createCloudinaryUpload } = require('../utils/cloudinaryUpload');
+const { createCloudinaryUpload, createRoleAwareUpload } = require('../utils/cloudinaryUpload');
 
 const uploadsDir = require('../utils/ensureUploadsDir').ensureUploadsDir();
 
-// Profile picture upload — stored in Cloudinary under event_management/profiles
-const upload = createCloudinaryUpload('profiles', ['jpeg', 'jpg', 'png', 'gif', 'webp'], 1, 'profile-');
+// Profile picture upload — role-aware: Admin gets 50MB, regular users get 1MB
+const upload = createRoleAwareUpload('profiles', ['jpeg', 'jpg', 'png', 'gif', 'webp'], 1, 'profile-');
 
 // Generate JWT
 const generateToken = (id) => {
@@ -526,8 +526,8 @@ exports.uploadProfilePicture = async (req, res, next) => {
     }
 };
 
-// Signature upload — stored in Cloudinary under event_management/signatures
-const signatureUpload = createCloudinaryUpload('signatures', ['jpeg', 'jpg', 'png', 'gif', 'webp'], 1, 'signature-');
+// Signature upload — role-aware: Admin gets 50MB, regular users get 1MB
+const signatureUpload = createRoleAwareUpload('signatures', ['jpeg', 'jpg', 'png', 'gif', 'webp'], 1, 'signature-');
 
 
 // @desc    Update password
