@@ -106,9 +106,18 @@ const Profile = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const MAX_PROFILE_SIZE_MB = 1;
+    const MAX_PROFILE_SIZE_BYTES = MAX_PROFILE_SIZE_MB * 1024 * 1024;
+
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        // Admins have no file size restriction
+        if (user?.role !== 'Admin' && file.size > MAX_PROFILE_SIZE_BYTES) {
+            toast.error(`Profile picture must be under ${MAX_PROFILE_SIZE_MB}MB. Your file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+            e.target.value = '';
+            return;
+        }
         setUploadingImage(true);
         const fd = new FormData();
         fd.append('profileImage', file);
@@ -125,9 +134,18 @@ const Profile = () => {
         }
     };
 
+    const MAX_SIGNATURE_SIZE_MB = 1;
+    const MAX_SIGNATURE_SIZE_BYTES = MAX_SIGNATURE_SIZE_MB * 1024 * 1024;
+
     const handleSignatureUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        // Admins have no file size restriction
+        if (user?.role !== 'Admin' && file.size > MAX_SIGNATURE_SIZE_BYTES) {
+            toast.error(`Signature must be under ${MAX_SIGNATURE_SIZE_MB}MB. Your file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+            e.target.value = '';
+            return;
+        }
         setSignatureFile(file);
         setSignaturePreview(URL.createObjectURL(file));
     };
@@ -399,12 +417,12 @@ const Profile = () => {
                                     <h2 className="text-lg font-black text-slate-900 dark:text-white">About You</h2>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-black text-slate-900 dark:text-slate-400 uppercase tracking-widest pl-1">Bio <span className="text-slate-300 font-medium normal-case tracking-normal">({formData.bio.length}/500)</span></label>
+                                    <label className="text-xs font-black text-slate-900 dark:text-slate-400 uppercase tracking-widest pl-1">Bio <span className="text-slate-300 font-medium normal-case tracking-normal">({formData.bio.length}/1000)</span></label>
                                     <textarea
                                         name="bio"
                                         className="input-premium h-32 resize-none"
                                         placeholder="Tell us about yourself..."
-                                        maxLength={500}
+                                        maxLength={1000}
                                         value={formData.bio}
                                         onChange={handleChange}
                                     />
@@ -452,7 +470,7 @@ const Profile = () => {
                                             className="input-premium cursor-pointer file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:bg-primary-50 dark:file:bg-primary-500/10 file:text-primary-700 dark:file:text-primary-400 file:font-black file:text-xs"
                                         />
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-1 leading-relaxed">
-                                            Only <span className="font-black text-primary-600 dark:text-primary-400">.png</span> files are allowed for the signature upload. If your signature has a background or is in another format,{' '}
+                                            Only <span className="font-black text-primary-600 dark:text-primary-400">.png</span> files are allowed{user?.role !== 'Admin' && <> (max <span className="font-black text-primary-600 dark:text-primary-400">1MB</span>)</>}. If your signature has a background or is in another format,{' '}
                                             <a
                                                 href="https://www.remove.bg/"
                                                 target="_blank"
