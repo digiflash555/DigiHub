@@ -51,6 +51,35 @@ const createCloudinaryUpload = (folder, formats, maxMB = 5, prefix = '') => {
 };
 
 /**
+ * Creates a role-aware multer upload middleware backed by Cloudinary.
+ * Admins bypass the regular file size limit and get a generous 50 MB cap instead.
+ *
+ * IMPORTANT: The `protect` middleware MUST run before this middleware in the route
+ * so that req.user is populated before multer starts processing the upload.
+ *
+ * @param {string}   folder      - Cloudinary folder to store files in
+ * @param {string[]} formats     - Allowed file format extensions, e.g. ['jpg','png']
+ * @param {number}   maxMB       - Max file size in MB for regular users
+ * @param {string}   [prefix]    - Optional public_id prefix / filename prefix
+ * @param {number}   [adminMaxMB=50] - Max file size in MB for Admin users (no practical limit)
+ * @returns {{ single, array, fields }} - Object with the same API as a multer instance
+ */
+const createRoleAwareUpload = (folder, formats, maxMB = 5, prefix = '', adminMaxMB = 50) => {
+    const regularUpload = createCloudinaryUpload(folder, formats, maxMB, prefix);
+    const adminUpload   = createCloudinaryUpload(folder, formats, adminMaxMB, prefix);
+
+    // Returns the correct multer instance based on the authenticated user's role.
+    const pick = (req) => (req.user?.role === 'Admin' ? adminUpload : regularUpload);
+
+    return {
+        single : (fieldName)        => (req, res, next) => pick(req).single(fieldName)(req, res, next),
+        array  : (fieldName, max)   => (req, res, next) => pick(req).array(fieldName, max)(req, res, next),
+        fields : (fields)           => (req, res, next) => pick(req).fields(fields)(req, res, next),
+        none   : ()                 => (req, res, next) => pick(req).none()(req, res, next),
+    };
+};
+
+/**
  * Deletes a file from Cloudinary by its public_id or full secure_url.
  * Silently ignores errors so a failed delete never breaks the API.
  *
@@ -77,4 +106,4 @@ const deleteFromCloudinary = async (publicIdOrUrl, resourceType = 'image') => {
     }
 };
 
-module.exports = { cloudinary, createCloudinaryUpload, deleteFromCloudinary };
+module.exports = { cloudinary, createCloudinaryUpload, createRoleAwareUpload, deleteFromCloudinary };
