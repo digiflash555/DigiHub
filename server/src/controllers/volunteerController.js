@@ -1,6 +1,7 @@
 const VolunteerApplication = require('../models/VolunteerApplication');
 const Event = require('../models/Event');
 const User = require('../models/User');
+const Settings = require('../models/Settings');
 
 // @desc    Apply to volunteer for an event
 // @route   POST /api/volunteers/apply
@@ -13,6 +14,19 @@ exports.applyToVolunteer = async (req, res, next) => {
         if (!event) {
             res.status(404);
             throw new Error('Event not found');
+        }
+
+        if (event.status === 'Completed' || event.status === 'Cancelled') {
+            return res.status(400).json({ message: 'Volunteer applications are closed for this event' });
+        }
+
+        const settings = await Settings.getSettings();
+        if (settings.volunteerRestriction === 'upcoming_events_only') {
+            const eventDateEnd = new Date(event.eventDate);
+            eventDateEnd.setHours(23, 59, 59, 999);
+            if (new Date() > eventDateEnd) {
+                return res.status(400).json({ message: 'Volunteer applications are closed for past events' });
+            }
         }
 
         const existing = await VolunteerApplication.findOne({
