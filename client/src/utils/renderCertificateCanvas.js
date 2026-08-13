@@ -31,10 +31,11 @@ const loadImage = (src) =>
 
 /** Resolve a canvas font string from field properties. */
 const buildFont = (fontSize, fontStyle, fontFamily) => {
-    const fam = fontFamily || 'Helvetica';
-    const size = fontSize || 20;
-    if (fontStyle === 'bold')   return `bold ${size}px "${fam}", Arial, sans-serif`;
-    if (fontStyle === 'italic') return `italic ${size}px "${fam}", Arial, sans-serif`;
+    const fam  = fontFamily || 'Helvetica';
+    const size = fontSize   || 20;
+    if (fontStyle === 'bolditalic') return `bold italic ${size}px "${fam}", Arial, sans-serif`;
+    if (fontStyle === 'bold')       return `bold ${size}px "${fam}", Arial, sans-serif`;
+    if (fontStyle === 'italic')     return `italic ${size}px "${fam}", Arial, sans-serif`;
     return `${size}px "${fam}", Arial, sans-serif`;
 };
 
@@ -107,37 +108,53 @@ export const renderCertificateCanvas = async (
         ctx.save();
 
         if (field.type === 'Text') {
-            // ── tokenise ────────────────────────────────────────────────────
-            const rawText = field.text || '';
-            const segments = [];
-            let cursor = 0;
-            const varRegex = /\{[^}]+\}/g;
-            let m;
-            while ((m = varRegex.exec(rawText)) !== null) {
-                if (m.index > cursor) {
-                    segments.push({ text: rawText.slice(cursor, m.index), isVar: false });
-                }
-                segments.push({
-                    text       : variables[m[0]] !== undefined ? variables[m[0]] : m[0],
-                    isVar      : true,
-                    originalVar: m[0],
-                });
-                cursor = varRegex.lastIndex;
-            }
-            if (cursor < rawText.length) {
-                segments.push({ text: rawText.slice(cursor), isVar: false });
-            }
+            // ── Build word chunks from richText segments (or fall back to field.text) ─
+            //
+            // richText format: [{ text: string, style: 'normal'|'bold'|'italic'|'bolditalic' }]
+            // Variables ({Name} etc.) may appear inside any segment's text.
+            // Each word carries its own resolved style; variable overrides still apply.
 
-            // ── word objects ─────────────────────────────────────────────────
             const wordsInfo = [];
-            for (const seg of segments) {
-                const words = String(seg.text).split(' ');
+
+            const splitText = (rawText, segStyle, isVarSegment, varKey) => {
+                const varRegex = /\{[^}]+\}/g;
+                let cursor = 0;
+                let m;
+                while ((m = varRegex.exec(rawText)) !== null) {
+                    if (m.index > cursor) {
+                        // static text before the variable
+                        const staticPart = rawText.slice(cursor, m.index);
+                        splitIntoWords(staticPart, segStyle, false, null);
+                    }
+                    const varKey2 = m[0];
+                    const resolved = variables[varKey2] !== undefined ? variables[varKey2] : varKey2;
+                    const varStyle = field.variableFontStyles?.[varKey2] || segStyle;
+                    splitIntoWords(resolved, varStyle, true, varKey2);
+                    cursor = varRegex.lastIndex;
+                }
+                if (cursor < rawText.length) {
+                    splitIntoWords(rawText.slice(cursor), segStyle, false, null);
+                }
+            };
+
+            const splitIntoWords = (text, style, isVar, originalVar) => {
+                const words = String(text).split(' ');
                 words.forEach((w, i) => {
                     const word = i < words.length - 1 ? w + ' ' : w;
                     if (word.length > 0) {
-                        wordsInfo.push({ word, isVar: seg.isVar, originalVar: seg.originalVar });
+                        wordsInfo.push({ word, style, isVar, originalVar });
                     }
                 });
+            };
+
+            if (field.richText && field.richText.length > 0) {
+                // ── NEW: per-segment styles ──────────────────────────────────
+                for (const seg of field.richText) {
+                    splitText(seg.text || '', seg.style || 'normal', false, null);
+                }
+            } else {
+                // ── LEGACY: single style for whole field ────────────────────
+                splitText(field.text || '', baseStyle, false, null);
             }
 
             // ── measure helper ───────────────────────────────────────────────
@@ -152,9 +169,9 @@ export const renderCertificateCanvas = async (
             let currentWidth = 0;
 
             for (const wo of wordsInfo) {
-                const wStyle  = (wo.isVar && field.variableFontStyles?.[wo.originalVar]) || baseStyle;
+                // For variables, use variableFontFamilies override; for static text, use field baseFamily
                 const wFamily = (wo.isVar && field.variableFontFamilies?.[wo.originalVar]) || baseFamily;
-                const wWidth  = measure(wo.word, wStyle, wFamily);
+                const wWidth  = measure(wo.word, wo.style, wFamily);
 
                 if (currentWidth + wWidth > maxWidth && currentLine.length > 0) {
                     linesInfo.push(currentLine);
@@ -173,18 +190,15 @@ export const renderCertificateCanvas = async (
             const lastIdx  = linesInfo.length - 1;
 
             linesInfo.forEach((lineArr, lineIdx) => {
-                // compute total line width for alignment
                 const lineWidth = lineArr.reduce((sum, wo) => {
-                    const wStyle  = (wo.isVar && field.variableFontStyles?.[wo.originalVar])  || baseStyle;
                     const wFamily = (wo.isVar && field.variableFontFamilies?.[wo.originalVar]) || baseFamily;
-                    return sum + measure(wo.word, wStyle, wFamily);
+                    return sum + measure(wo.word, wo.style, wFamily);
                 }, 0);
 
                 let startX = field.x;
                 if (align === 'center') startX = field.x - lineWidth / 2;
                 if (align === 'right')  startX = field.x - lineWidth;
 
-                // justify spacing
                 let extraPerSpace = 0;
                 if (align === 'justify' && lineIdx < lastIdx) {
                     const spaceCount = lineArr.filter(wo => wo.word.endsWith(' ')).length;
@@ -196,15 +210,14 @@ export const renderCertificateCanvas = async (
                 ctx.textBaseline = 'alphabetic';
 
                 for (const chunk of lineArr) {
+                    // Color: variable overrides or base color; style comes from word itself
                     const cColor  = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || baseColor;
-                    const cStyle  = (chunk.isVar && field.variableFontStyles?.[chunk.originalVar])  || baseStyle;
                     const cFamily = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || baseFamily;
 
-                    ctx.font      = buildFont(fontSize, cStyle, cFamily);
+                    ctx.font      = buildFont(fontSize, chunk.style, cFamily);
                     ctx.fillStyle = cColor;
                     ctx.fillText(chunk.word, x, y);
 
-                    // underline variables
                     if (chunk.isVar && field.underlineVariables) {
                         const uw = ctx.measureText(chunk.word.trimEnd()).width;
                         ctx.strokeStyle = cColor;
@@ -215,8 +228,7 @@ export const renderCertificateCanvas = async (
                         ctx.stroke();
                     }
 
-                    const cw = measure(chunk.word, cStyle, cFamily);
-                    x += cw;
+                    x += measure(chunk.word, chunk.style, cFamily);
                     if (align === 'justify' && lineIdx < lastIdx && chunk.word.endsWith(' ')) {
                         x += extraPerSpace;
                     }
