@@ -285,72 +285,179 @@ const FeedbackManagement = () => {
                 }
             }
 
+            // Setup Header drawing function that will be executed only on the first page
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            const titleLines = doc.splitTextToSize(eventTitle || '', 62);
+            const venueLines = doc.splitTextToSize(selectedEvent.venue || 'N/A', 62);
+            const leftHeight = 44.5 + ((titleLines.length - 1) * 4) + 5.5 + 3.5;
+            const rightHeight = 44.5 + 5.5 + ((venueLines.length - 1) * 4) + 3.5;
+            const boxBottom = Math.max(leftHeight, rightHeight);
+            const titleY = boxBottom + 7.5;
+            const headerHeight = titleY + 6.5;
+
             const drawHeader = (docInstance) => {
-                // Left: IIC, Right: Digiflash
-                if (iicBase64) docInstance.addImage(iicBase64, 'PNG', 15, 12, 24, 24);
-                else {
+                // Left Logo (IIC)
+                if (iicBase64) {
+                    docInstance.addImage(iicBase64, 'PNG', 15, 12, 24, 24);
+                } else {
+                    docInstance.setDrawColor(200, 200, 200);
                     docInstance.setFillColor(245, 245, 245);
                     docInstance.rect(15, 12, 24, 24, 'FD');
-                    docInstance.setFontSize(7);
+                    docInstance.setFont("helvetica", "bold");
+                    docInstance.setFontSize(8);
                     docInstance.setTextColor(150, 150, 150);
-                    docInstance.text('IIC LOGO', 27, 24, { align: 'center' });
+                    docInstance.text("IIC LOGO", 27, 24, { align: 'center' });
                 }
 
-                if (digiBase64) docInstance.addImage(digiBase64, 'PNG', 171, 12, 24, 24);
-                else {
+                // Right Logo (Digiflash)
+                if (digiBase64) {
+                    docInstance.addImage(digiBase64, 'PNG', 171, 12, 24, 24);
+                } else {
+                    docInstance.setDrawColor(200, 200, 200);
                     docInstance.setFillColor(245, 245, 245);
                     docInstance.rect(171, 12, 24, 24, 'FD');
-                    docInstance.setFontSize(7);
+                    docInstance.setFont("helvetica", "bold");
+                    docInstance.setFontSize(8);
                     docInstance.setTextColor(150, 150, 150);
-                    docInstance.text('DIGIFLASH', 183, 24, { align: 'center' });
+                    docInstance.text("DIGIFLASH", 183, 24, { align: 'center' });
                 }
 
-                docInstance.setTextColor(15, 23, 42);
-                docInstance.setFont('helvetica', 'bold');
+                // Center Header Texts
+                docInstance.setTextColor(15, 23, 42); // slate-900
+
+                docInstance.setFont("helvetica", "bold");
                 docInstance.setFontSize(10.5);
-                docInstance.text('Dr. Mahalingam College of Engineering and Technology, Pollachi', 105, 16, { align: 'center' });
+                docInstance.text("Dr. Mahalingam College of Engineering and Technology, Pollachi", 105, 16, { align: 'center' });
 
+                docInstance.setFont("helvetica", "bold");
                 docInstance.setFontSize(9.5);
-                docInstance.text('Department of Computer Science and Engineering', 105, 21, { align: 'center' });
+                docInstance.text("Department of Computer Science and Engineering", 105, 21, { align: 'center' });
 
-                docInstance.setFont('helvetica', 'normal');
+                docInstance.setFont("helvetica", "normal");
                 docInstance.setFontSize(9);
-                docInstance.text('Digiflash proudly organizes', 105, 26, { align: 'center' });
+                docInstance.text("Digiflash proudly organizes", 105, 26, { align: 'center' });
 
-                docInstance.setFont('helvetica', 'bold');
+                docInstance.setFont("helvetica", "bold");
                 docInstance.setFontSize(11.5);
                 docInstance.text(symposiumName, 105, 31, { align: 'center' });
 
+                docInstance.setFont("helvetica", "bold");
                 docInstance.setFontSize(8.5);
                 docInstance.text(symposiumType, 105, 35.5, { align: 'center' });
 
-                // Event details box
-                docInstance.setDrawColor(200, 220, 240);
-                docInstance.setLineWidth(0.3);
-                docInstance.rect(15, 40, 180, 13);
-                docInstance.line(110, 40, 110, 53);
+                // Event details box borders
+                docInstance.setDrawColor(0, 0, 0); // black border as per image
+                docInstance.setLineWidth(0.5);
 
-                docInstance.setFont('helvetica', 'normal');
-                docInstance.setFontSize(9);
-                docInstance.text('Name of the Event: ', 17, 45);
-                docInstance.setFont('helvetica', 'bold');
-                const truncatedTitle = eventTitle.length > 30 ? eventTitle.substring(0, 30) + '...' : eventTitle;
-                docInstance.text(truncatedTitle, 46, 45);
+                // Pre-calculate wrapping for Name of the Event
+                docInstance.setFontSize(10);
+                docInstance.setFont("helvetica", "normal");
+                const nameLabelWidth = docInstance.getTextWidth("Name of the Event: ");
+                docInstance.setFont("helvetica", "bold");
+                
+                let titleLinesArr = [];
+                let currentLine = "";
+                let currentLineWidth = nameLabelWidth;
+                const maxCellWidth = 88; // 90 width - 2 padding
 
-                docInstance.setFont('helvetica', 'normal');
-                docInstance.text('Date: ', 17, 50.5);
-                docInstance.setFont('helvetica', 'bold');
-                docInstance.text(new Date(selectedEvent.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, 50.5);
+                const titleWords = (eventTitle || '').split(' ');
+                titleWords.forEach(word => {
+                    const wWidth = docInstance.getTextWidth(word + ' ');
+                    if (currentLineWidth + wWidth > maxCellWidth && currentLine !== "") {
+                        titleLinesArr.push(currentLine);
+                        currentLine = word + ' ';
+                        currentLineWidth = docInstance.getTextWidth(currentLine);
+                    } else {
+                        currentLine += word + ' ';
+                        currentLineWidth += wWidth;
+                    }
+                });
+                if (currentLine) titleLinesArr.push(currentLine);
 
-                docInstance.setFont('helvetica', 'normal');
-                docInstance.text('Total Responses: ', 113, 45);
-                docInstance.setFont('helvetica', 'bold');
-                docInstance.text(String(feedbackData.length), 143, 45);
+                // Pre-calculate wrapping for Venue
+                docInstance.setFont("helvetica", "normal");
+                const venueLabelWidth = docInstance.getTextWidth("Venue: ");
+                docInstance.setFont("helvetica", "bold");
+                
+                let venueLinesObj = [];
+                let vLine = "";
+                let vLineWidth = venueLabelWidth;
 
-                docInstance.setFont('helvetica', 'normal');
-                docInstance.text('Generated: ', 113, 50.5);
-                docInstance.setFont('helvetica', 'bold');
-                docInstance.text(new Date().toLocaleDateString('en-IN'), 130, 50.5);
+                const venueWords = (selectedEvent.venue || 'N/A').split(' ');
+                venueWords.forEach(word => {
+                    const wWidth = docInstance.getTextWidth(word + ' ');
+                    if (vLineWidth + wWidth > maxCellWidth && vLine !== "") {
+                        venueLinesObj.push(vLine);
+                        vLine = word + ' ';
+                        vLineWidth = docInstance.getTextWidth(vLine);
+                    } else {
+                        vLine += word + ' ';
+                        vLineWidth += wWidth;
+                    }
+                });
+                if (vLine) venueLinesObj.push(vLine);
+
+                // Calculate heights
+                const lineHeight = 5.5;
+                const nameHeight = (titleLinesArr.length * lineHeight);
+                const dateHeight = lineHeight;
+                const topRowHeight = Math.max(nameHeight, dateHeight) + 4; // Add padding
+
+                const timingHeight = lineHeight;
+                const venueHeight = (venueLinesObj.length * lineHeight);
+                const bottomRowHeight = Math.max(timingHeight, venueHeight) + 4; // Add padding
+
+                const boxHeight = topRowHeight + bottomRowHeight;
+                const boxTop = 42;
+                const midY = boxTop + topRowHeight;
+                const boxBottomY = boxTop + boxHeight;
+
+                // Draw Box
+                docInstance.rect(15, boxTop, 180, boxHeight); // outer box
+                docInstance.line(105, boxTop, 105, boxBottomY); // middle vertical line
+                docInstance.line(15, midY, 195, midY); // middle horizontal line
+
+                // Draw Left Column - Top Row (Name of the Event)
+                let nameY = boxTop + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Name of the Event: ", 17, nameY);
+                docInstance.setFont("helvetica", "bold");
+                titleLinesArr.forEach((line, idx) => {
+                    if (idx === 0) {
+                        docInstance.text(line, 17 + nameLabelWidth, nameY);
+                    } else {
+                        docInstance.text(line, 17, nameY + (idx * lineHeight));
+                    }
+                });
+
+                // Draw Right Column - Top Row (Date)
+                let dateY = boxTop + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Date: ", 107, dateY);
+                docInstance.setFont("helvetica", "bold");
+                let formattedDate = new Date(selectedEvent.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+                docInstance.text(formattedDate, 107 + docInstance.getTextWidth("Date: "), dateY);
+
+                // Draw Left Column - Bottom Row (Timing)
+                let timingY = midY + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Time: ", 17, timingY);
+                docInstance.setFont("helvetica", "bold");
+                docInstance.text(`${selectedEvent.startTime || 'N/A'} to ${selectedEvent.endTime || 'N/A'}`, 17 + docInstance.getTextWidth("Time: "), timingY);
+
+                // Draw Right Column - Bottom Row (Venue)
+                let venueY = midY + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Venue: ", 107, venueY);
+                docInstance.setFont("helvetica", "bold");
+                venueLinesObj.forEach((line, idx) => {
+                    if (idx === 0) {
+                        docInstance.text(line, 107 + venueLabelWidth, venueY);
+                    } else {
+                        docInstance.text(line, 107, venueY + (idx * lineHeight));
+                    }
+                });
             };
 
             // ── Page 1: Title + Sentiment Summary ──
@@ -359,12 +466,12 @@ const FeedbackManagement = () => {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(14);
             doc.setTextColor(30, 41, 59);
-            doc.text('Feedback Analytical Report', 105, 62, { align: 'center' });
+            doc.text('Feedback Analytical Report', 105, headerHeight, { align: 'center' });
             doc.setDrawColor(99, 102, 241);
             doc.setLineWidth(0.8);
-            doc.line(60, 64, 150, 64);
+            doc.line(60, headerHeight + 2, 150, headerHeight + 2);
 
-            let currentY = 74;
+            let currentY = headerHeight + 12;
 
             // Overall sentiment box
             if (overallSentiment) {
@@ -411,8 +518,7 @@ const FeedbackManagement = () => {
                 for (const [label, info] of Object.entries(summary)) {
                     if (currentY > 240) {
                         doc.addPage();
-                        drawHeader(doc);
-                        currentY = 62;
+                        currentY = 15;
                     }
 
                     doc.setFont('helvetica', 'bold');
@@ -484,8 +590,7 @@ const FeedbackManagement = () => {
                         info.answers.slice(0, 5).forEach(({ text, sentiment }) => {
                             if (currentY > 265) {
                                 doc.addPage();
-                                drawHeader(doc);
-                                currentY = 62;
+                                currentY = 15;
                             }
                             const sentLabel = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
                             const sentColor = sentiment === 'positive' ? [16, 185, 129] : sentiment === 'negative' ? [239, 68, 68] : [245, 158, 11];
@@ -524,14 +629,13 @@ const FeedbackManagement = () => {
 
             // ── Page: Detailed Responses Table ──
             doc.addPage();
-            drawHeader(doc);
 
             doc.setTextColor(30, 41, 59);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(13);
-            doc.text('Detailed Responses', 105, 62, { align: 'center' });
+            doc.text('Detailed Responses', 105, 15, { align: 'center' });
             doc.setDrawColor(99, 102, 241);
-            doc.line(65, 64, 145, 64);
+            doc.line(65, 17, 145, 17);
 
             const tableColumns = ['Participant', 'Reg No', 'Sentiment'];
             selectedEvent.feedbackForm.forEach(f => tableColumns.push(f.label));
@@ -558,13 +662,13 @@ const FeedbackManagement = () => {
             autoTable(doc, {
                 head: [tableColumns],
                 body: tableRows,
-                startY: 70,
+                startY: 25,
                 theme: 'grid',
                 styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak' },
                 headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                margin: { top: 65 },
+                margin: { top: 15 },
                 didDrawPage: (data) => {
-                    if (data.pageNumber > 1) drawHeader(doc);
+                    // Header is already drawn manually on page 1
                 },
                 didParseCell: (data) => {
                     if (data.column.index === 2 && data.section === 'body') {
@@ -577,11 +681,10 @@ const FeedbackManagement = () => {
             });
 
             // Footer signatures
-            let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : currentY) + 25;
-            if (finalY > 250) {
+            let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : currentY) + 20;
+            if (finalY > 265) {
                 doc.addPage();
-                drawHeader(doc);
-                finalY = 85;
+                finalY = 25;
             }
 
             doc.setFont('helvetica', 'bold');
