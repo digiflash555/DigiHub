@@ -1127,7 +1127,7 @@ const EventDetails = () => {
                         {/* Volunteer Apply Section for Association Members */}
                         {user?.role === 'Association Member' && !showRegForm &&
                          event.status !== 'Completed' && event.status !== 'Cancelled' &&
-                         (settings.volunteerRestriction === 'all' || new Date() < new Date(event.eventDate)) && (
+                         (settings.volunteerRestriction === 'all' || new Date() <= getDeadlineEnd(event.eventDate)) && (
                             <div className="bg-white dark:bg-[#20242B] p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 mt-6 dark:text-white">
                                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                     <Handshake className="w-4 h-4 text-indigo-500" /> Volunteer for this Event
