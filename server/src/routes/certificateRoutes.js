@@ -58,11 +58,15 @@ router.post('/config/:eventId', protect, authorize('Admin'), upload.single('temp
             config.fields = config.fields.map(f => ({
                 type: f.type,
                 text: f.text || '',
+                richText: Array.isArray(f.richText) ? f.richText.map(s => ({
+                    text: String(s.text || ''),
+                    style: ['bold', 'italic', 'bolditalic'].includes(s.style) ? s.style : 'normal',
+                })) : null,
                 x: Number(f.x) || 0,
                 y: Number(f.y) || 0,
                 fontSize: Number(f.fontSize) || 20,
                 color: f.color || '#000000',
-                fontStyle: f.fontStyle || 'normal',
+                fontStyle: ['bold', 'italic', 'bolditalic'].includes(f.fontStyle) ? f.fontStyle : 'normal',
                 fontFamily: f.fontFamily || 'Helvetica',
                 alignment: f.alignment || 'left',
                 width: Number(f.width) || 600,
