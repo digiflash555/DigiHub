@@ -9,6 +9,24 @@ const cleanSection = (sec) => {
     return s;
 };
 
+const getFormDataObject = (formData) => {
+    if (!formData) return {};
+    if (typeof formData.toJSON === 'function') {
+        try {
+            return formData.toJSON();
+        } catch (e) {}
+    }
+    if (formData instanceof Map) {
+        try {
+            return Object.fromEntries(formData);
+        } catch (e) {}
+    }
+    if (typeof formData === 'object') {
+        return formData;
+    }
+    return {};
+};
+
 const generateExcelReport = async (registrations, eventTitle) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Registrations');
@@ -17,7 +35,7 @@ const generateExcelReport = async (registrations, eventTitle) => {
     const dynamicKeys = new Set();
     registrations.forEach(reg => {
         if (reg.formData) {
-            const data = (reg.formData instanceof Map) ? Object.fromEntries(reg.formData) : reg.formData;
+            const data = getFormDataObject(reg.formData);
             Object.keys(data).forEach(key => dynamicKeys.add(key));
         }
     });
@@ -54,7 +72,7 @@ const generateExcelReport = async (registrations, eventTitle) => {
         };
 
         if (reg.formData) {
-            const data = (reg.formData instanceof Map) ? Object.fromEntries(reg.formData) : reg.formData;
+            const data = getFormDataObject(reg.formData);
             dynamicArray.forEach(key => {
                 rowData[`dyn_${key}`] = data[key] || '-';
             });
@@ -463,7 +481,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
                 1: { halign: 'center', cellWidth: 35 },
                 2: { halign: 'center', cellWidth: 50 },
                 3: { halign: 'center', cellWidth: 40 },
-                4: { halign: 'center', cellWidth: 40 }
+                4: { halign: 'center', cellWidth: 40, minCellHeight: 18 }
             } : {
                 0: { halign: 'center', cellWidth: 12 },
                 1: { halign: 'center', cellWidth: 25 },
@@ -478,7 +496,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
                 1: { halign: 'center', cellWidth: 35 },
                 2: { halign: 'center', cellWidth: 50 },
                 3: { halign: 'center', cellWidth: 40 },
-                4: { halign: 'center', cellWidth: 40 }
+                4: { halign: 'center', cellWidth: 40, minCellHeight: 18 }
             } : {
                 0: { halign: 'center', cellWidth: 12 },
                 1: { halign: 'center', cellWidth: 25 },
@@ -496,9 +514,10 @@ const generatePDFReport = async (registrations, event, options = {}) => {
                 const sigObj = signatureImages[data.row.index];
                 if (sigObj && sigObj.data) {
                     try {
-                        const dimH = data.cell.height - 4;
-                        const dimW = data.cell.width - 4;
-                        doc.addImage(sigObj.data, sigObj.format, data.cell.x + 2, data.cell.y + 2, dimW, dimH);
+                        const imgSize = 12;
+                        const x = data.cell.x + (data.cell.width - imgSize * 2) / 2;
+                        const y = data.cell.y + 2;
+                        doc.addImage(sigObj.data, sigObj.format, x, y, imgSize * 2, imgSize);
                     } catch (e) {
                         console.error('Failed to add signature image to cell', e);
                     }
