@@ -223,41 +223,120 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         docInstance.text(settings.symposiumType, 105, 35.5, { align: 'center' });
 
         // Event details box borders
-        docInstance.setDrawColor(200, 220, 240); // light blue border
-        docInstance.setLineWidth(0.3);
-        docInstance.rect(15, 40, 180, boxBottom - 40); // outer box
-        docInstance.line(110, 40, 110, boxBottom); // vertical division
+        docInstance.setDrawColor(0, 0, 0); // black border as per image
+        docInstance.setLineWidth(0.5);
 
-        // Left Column
-        let leftY = 44.5;
+        // Pre-calculate wrapping for Name of the Event
+        docInstance.setFontSize(10);
         docInstance.setFont("helvetica", "normal");
-        docInstance.setFontSize(9);
+        const nameLabelWidth = docInstance.getTextWidth("Name of the Event: ");
+        docInstance.setFont("helvetica", "bold");
+        
+        let titleLines = [];
+        let currentLine = "";
+        let currentLineWidth = nameLabelWidth;
+        const maxCellWidth = 88; // 90 width - 2 padding
+
+        const titleWords = (event.title || '').split(' ');
+        titleWords.forEach(word => {
+            const wWidth = docInstance.getTextWidth(word + ' ');
+            if (currentLineWidth + wWidth > maxCellWidth && currentLine !== "") {
+                titleLines.push(currentLine);
+                currentLine = word + ' ';
+                currentLineWidth = docInstance.getTextWidth(currentLine);
+            } else {
+                currentLine += word + ' ';
+                currentLineWidth += wWidth;
+            }
+        });
+        if (currentLine) titleLines.push(currentLine);
+
+        // Pre-calculate wrapping for Venue
+        docInstance.setFont("helvetica", "normal");
+        const venueLabelWidth = docInstance.getTextWidth("Venue: ");
+        docInstance.setFont("helvetica", "bold");
+        
+        let venueLinesObj = [];
+        let vLine = "";
+        let vLineWidth = venueLabelWidth;
+
+        const venueWords = (event.venue || 'N/A').split(' ');
+        venueWords.forEach(word => {
+            const wWidth = docInstance.getTextWidth(word + ' ');
+            if (vLineWidth + wWidth > maxCellWidth && vLine !== "") {
+                venueLinesObj.push(vLine);
+                vLine = word + ' ';
+                vLineWidth = docInstance.getTextWidth(vLine);
+            } else {
+                vLine += word + ' ';
+                vLineWidth += wWidth;
+            }
+        });
+        if (vLine) venueLinesObj.push(vLine);
+
+        // Calculate heights
+        const lineHeight = 5.5;
+        const nameHeight = (titleLines.length * lineHeight);
+        const timingHeight = lineHeight;
+        const topRowHeight = Math.max(nameHeight, timingHeight) + 4; // Add padding
+
+        const dateHeight = lineHeight;
+        const venueHeight = (venueLinesObj.length * lineHeight);
+        const bottomRowHeight = Math.max(dateHeight, venueHeight) + 4; // Add padding
+
+        const boxHeight = topRowHeight + bottomRowHeight;
+        const boxTop = 42;
+        const midY = boxTop + topRowHeight;
+        const boxBottomY = boxTop + boxHeight;
+
+        // Draw Box
+        docInstance.rect(15, boxTop, 180, boxHeight); // outer box
+        docInstance.line(105, boxTop, 105, boxBottomY); // middle vertical line
+        docInstance.line(15, midY, 195, midY); // middle horizontal line
+
+        // Draw Left Column - Top Row (Name of the Event)
+        let leftY = boxTop + 5.5;
+        docInstance.setFont("helvetica", "normal");
         docInstance.text("Name of the Event: ", 17, leftY);
         docInstance.setFont("helvetica", "bold");
         titleLines.forEach((line, idx) => {
-            docInstance.text(line, 45, leftY + (idx * 4));
+            if (idx === 0) {
+                docInstance.text(line, 17 + nameLabelWidth, leftY);
+            } else {
+                docInstance.text(line, 17, leftY + (idx * lineHeight));
+            }
         });
 
-        const dateY = leftY + ((titleLines.length - 1) * 4) + 5.5;
+        // Draw Left Column - Bottom Row (Date)
+        let dateY = midY + 5.5;
         docInstance.setFont("helvetica", "normal");
         docInstance.text("Date: ", 17, dateY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, dateY);
+        let formattedDate = new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        docInstance.text(formattedDate, 17 + docInstance.getTextWidth("Date: "), dateY);
 
-        // Right Column
-        let rightY = 44.5;
+        // Draw Right Column - Top Row (Timing)
+        let rightY = boxTop + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Timing: ", 113, rightY);
+        docInstance.text("Timing: ", 107, rightY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, rightY);
+        docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 107 + docInstance.getTextWidth("Timing: "), rightY);
 
-        const venueY = rightY + 5.5;
+        // Draw Right Column - Bottom Row (Venue)
+        let venueY = midY + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Venue: ", 113, venueY);
+        docInstance.text("Venue: ", 107, venueY);
         docInstance.setFont("helvetica", "bold");
-        venueLines.forEach((line, idx) => {
-            docInstance.text(line, 125, venueY + (idx * 4));
+        venueLinesObj.forEach((line, idx) => {
+            if (idx === 0) {
+                docInstance.text(line, 107 + venueLabelWidth, venueY);
+            } else {
+                docInstance.text(line, 107, venueY + (idx * lineHeight));
+            }
         });
+
+        const titleY = boxBottomY + 8;
+        const headerHeight = titleY + 6.5;
 
         // Title Section
         docInstance.setFont("helvetica", "bold");
@@ -562,41 +641,120 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         docInstance.text(settings.symposiumType, 105, 35.5, { align: 'center' });
 
         // Event details box borders
-        docInstance.setDrawColor(200, 220, 240);
-        docInstance.setLineWidth(0.3);
-        docInstance.rect(15, 40, 180, boxBottom - 40);
-        docInstance.line(110, 40, 110, boxBottom);
+        docInstance.setDrawColor(0, 0, 0); // black border as per image
+        docInstance.setLineWidth(0.5);
 
-        // Left Column
-        let leftY = 44.5;
+        // Pre-calculate wrapping for Name of the Event
+        docInstance.setFontSize(10);
         docInstance.setFont("helvetica", "normal");
-        docInstance.setFontSize(9);
+        const nameLabelWidth = docInstance.getTextWidth("Name of the Event: ");
+        docInstance.setFont("helvetica", "bold");
+        
+        let titleLines = [];
+        let currentLine = "";
+        let currentLineWidth = nameLabelWidth;
+        const maxCellWidth = 88; // 90 width - 2 padding
+
+        const titleWords = (event.title || '').split(' ');
+        titleWords.forEach(word => {
+            const wWidth = docInstance.getTextWidth(word + ' ');
+            if (currentLineWidth + wWidth > maxCellWidth && currentLine !== "") {
+                titleLines.push(currentLine);
+                currentLine = word + ' ';
+                currentLineWidth = docInstance.getTextWidth(currentLine);
+            } else {
+                currentLine += word + ' ';
+                currentLineWidth += wWidth;
+            }
+        });
+        if (currentLine) titleLines.push(currentLine);
+
+        // Pre-calculate wrapping for Venue
+        docInstance.setFont("helvetica", "normal");
+        const venueLabelWidth = docInstance.getTextWidth("Venue: ");
+        docInstance.setFont("helvetica", "bold");
+        
+        let venueLinesObj = [];
+        let vLine = "";
+        let vLineWidth = venueLabelWidth;
+
+        const venueWords = (event.venue || 'N/A').split(' ');
+        venueWords.forEach(word => {
+            const wWidth = docInstance.getTextWidth(word + ' ');
+            if (vLineWidth + wWidth > maxCellWidth && vLine !== "") {
+                venueLinesObj.push(vLine);
+                vLine = word + ' ';
+                vLineWidth = docInstance.getTextWidth(vLine);
+            } else {
+                vLine += word + ' ';
+                vLineWidth += wWidth;
+            }
+        });
+        if (vLine) venueLinesObj.push(vLine);
+
+        // Calculate heights
+        const lineHeight = 5.5;
+        const nameHeight = (titleLines.length * lineHeight);
+        const timingHeight = lineHeight;
+        const topRowHeight = Math.max(nameHeight, timingHeight) + 4; // Add padding
+
+        const dateHeight = lineHeight;
+        const venueHeight = (venueLinesObj.length * lineHeight);
+        const bottomRowHeight = Math.max(dateHeight, venueHeight) + 4; // Add padding
+
+        const boxHeight = topRowHeight + bottomRowHeight;
+        const boxTop = 42;
+        const midY = boxTop + topRowHeight;
+        const boxBottomY = boxTop + boxHeight;
+
+        // Draw Box
+        docInstance.rect(15, boxTop, 180, boxHeight); // outer box
+        docInstance.line(105, boxTop, 105, boxBottomY); // middle vertical line
+        docInstance.line(15, midY, 195, midY); // middle horizontal line
+
+        // Draw Left Column - Top Row (Name of the Event)
+        let leftY = boxTop + 5.5;
+        docInstance.setFont("helvetica", "normal");
         docInstance.text("Name of the Event: ", 17, leftY);
         docInstance.setFont("helvetica", "bold");
         titleLines.forEach((line, idx) => {
-            docInstance.text(line, 45, leftY + (idx * 4));
+            if (idx === 0) {
+                docInstance.text(line, 17 + nameLabelWidth, leftY);
+            } else {
+                docInstance.text(line, 17, leftY + (idx * lineHeight));
+            }
         });
 
-        const dateY = leftY + ((titleLines.length - 1) * 4) + 5.5;
+        // Draw Left Column - Bottom Row (Date)
+        let dateY = midY + 5.5;
         docInstance.setFont("helvetica", "normal");
         docInstance.text("Date: ", 17, dateY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, dateY);
+        let formattedDate = new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        docInstance.text(formattedDate, 17 + docInstance.getTextWidth("Date: "), dateY);
 
-        // Right Column
-        let rightY = 44.5;
+        // Draw Right Column - Top Row (Timing)
+        let rightY = boxTop + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Timing: ", 113, rightY);
+        docInstance.text("Timing: ", 107, rightY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, rightY);
+        docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 107 + docInstance.getTextWidth("Timing: "), rightY);
 
-        const venueY = rightY + 5.5;
+        // Draw Right Column - Bottom Row (Venue)
+        let venueY = midY + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Venue: ", 113, venueY);
+        docInstance.text("Venue: ", 107, venueY);
         docInstance.setFont("helvetica", "bold");
-        venueLines.forEach((line, idx) => {
-            docInstance.text(line, 125, venueY + (idx * 4));
+        venueLinesObj.forEach((line, idx) => {
+            if (idx === 0) {
+                docInstance.text(line, 107 + venueLabelWidth, venueY);
+            } else {
+                docInstance.text(line, 107, venueY + (idx * lineHeight));
+            }
         });
+
+        const titleY = boxBottomY + 8;
+        const headerHeight = titleY + 6.5;
 
         // Title Section
         docInstance.setFont("helvetica", "bold");
