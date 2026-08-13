@@ -152,6 +152,14 @@ const generatePDFReport = async (registrations, event, options = {}) => {
     const iicLogoObj = await getLogoBase64(settings.iicLogo);
     const digiflashLogoObj = await getLogoBase64(settings.digiflashLogo);
 
+    const titleLines = doc.splitTextToSize(event.title, 62);
+    const venueLines = doc.splitTextToSize(event.venue || 'N/A', 62);
+    const leftHeight = 44.5 + ((titleLines.length - 1) * 4) + 5.5 + 3.5;
+    const rightHeight = 44.5 + 5.5 + ((venueLines.length - 1) * 4) + 3.5;
+    const boxBottom = Math.max(leftHeight, rightHeight);
+    const titleY = boxBottom + 7.5;
+    const headerHeight = titleY + 6.5;
+
     const drawHeader = (docInstance) => {
         // Left Logo (IIC)
         if (iicLogoObj) {
@@ -215,40 +223,48 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         // Event details box borders
         docInstance.setDrawColor(200, 220, 240); // light blue border
         docInstance.setLineWidth(0.3);
-        docInstance.rect(15, 40, 180, 13); // outer box
-        docInstance.line(110, 40, 110, 53); // vertical division
+        docInstance.rect(15, 40, 180, boxBottom - 40); // outer box
+        docInstance.line(110, 40, 110, boxBottom); // vertical division
 
         // Left Column
+        let leftY = 44.5;
         docInstance.setFont("helvetica", "normal");
         docInstance.setFontSize(9);
-        docInstance.text("Name of the Event: ", 17, 45);
+        docInstance.text("Name of the Event: ", 17, leftY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(event.title, 45, 45);
+        titleLines.forEach((line, idx) => {
+            docInstance.text(line, 45, leftY + (idx * 4));
+        });
 
+        const dateY = leftY + ((titleLines.length - 1) * 4) + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Date: ", 17, 50.5);
+        docInstance.text("Date: ", 17, dateY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, 50.5);
+        docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, dateY);
 
         // Right Column
+        let rightY = 44.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Timing: ", 113, 45);
+        docInstance.text("Timing: ", 113, rightY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, 45);
+        docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, rightY);
 
+        const venueY = rightY + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Venue: ", 113, 50.5);
+        docInstance.text("Venue: ", 113, venueY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(event.venue, 125, 50.5);
+        venueLines.forEach((line, idx) => {
+            docInstance.text(line, 125, venueY + (idx * 4));
+        });
 
         // Title Section
         docInstance.setFont("helvetica", "bold");
         docInstance.setFontSize(13);
         docInstance.setTextColor(30, 41, 59); // slate-800
-        docInstance.text(titleText, 105, 60.5, { align: 'center' });
+        docInstance.text(titleText, 105, titleY, { align: 'center' });
 
         docInstance.setDrawColor(226, 232, 240);
-        docInstance.line(85, 62.5, 125, 62.5);
+        docInstance.line(85, titleY + 2, 125, titleY + 2);
     };
 
     // Columns config (specifically tailored for PDF)
@@ -350,8 +366,8 @@ const generatePDFReport = async (registrations, event, options = {}) => {
     }
 
     autoTable(doc, {
-        startY: 68,
-        margin: { top: 68 },
+        startY: headerHeight,
+        margin: { top: headerHeight },
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
@@ -408,7 +424,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
     });
 
     // Signatures footer on the last page
-    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 70) + 25;
+    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : headerHeight + 2) + 25;
     if (finalY > 250) {
         doc.addPage();
         finalY = 85;
@@ -474,6 +490,14 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     const iicLogoObj = await getLogoBase64(settings.iicLogo);
     const digiflashLogoObj = await getLogoBase64(settings.digiflashLogo);
 
+    const titleLines = doc.splitTextToSize(event.title, 62);
+    const venueLines = doc.splitTextToSize(event.venue || 'N/A', 62);
+    const leftHeight = 44.5 + ((titleLines.length - 1) * 4) + 5.5 + 3.5;
+    const rightHeight = 44.5 + 5.5 + ((venueLines.length - 1) * 4) + 3.5;
+    const boxBottom = Math.max(leftHeight, rightHeight);
+    const titleY = boxBottom + 7.5;
+    const headerHeight = titleY + 6.5;
+
     const drawHeader = (docInstance) => {
         // Left Logo (IIC)
         if (iicLogoObj) {
@@ -536,41 +560,49 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         // Event details box borders
         docInstance.setDrawColor(200, 220, 240);
         docInstance.setLineWidth(0.3);
-        docInstance.rect(15, 40, 180, 13);
-        docInstance.line(110, 40, 110, 53);
+        docInstance.rect(15, 40, 180, boxBottom - 40);
+        docInstance.line(110, 40, 110, boxBottom);
 
         // Left Column
+        let leftY = 44.5;
         docInstance.setFont("helvetica", "normal");
         docInstance.setFontSize(9);
-        docInstance.text("Name of the Event: ", 17, 45);
+        docInstance.text("Name of the Event: ", 17, leftY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(event.title, 45, 45);
+        titleLines.forEach((line, idx) => {
+            docInstance.text(line, 45, leftY + (idx * 4));
+        });
 
+        const dateY = leftY + ((titleLines.length - 1) * 4) + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Date: ", 17, 50.5);
+        docInstance.text("Date: ", 17, dateY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, 50.5);
+        docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, dateY);
 
         // Right Column
+        let rightY = 44.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Timing: ", 113, 45);
+        docInstance.text("Timing: ", 113, rightY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, 45);
+        docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, rightY);
 
+        const venueY = rightY + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Venue: ", 113, 50.5);
+        docInstance.text("Venue: ", 113, venueY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(event.venue, 125, 50.5);
+        venueLines.forEach((line, idx) => {
+            docInstance.text(line, 125, venueY + (idx * 4));
+        });
 
         // Title Section
         docInstance.setFont("helvetica", "bold");
         docInstance.setFontSize(13);
         docInstance.setTextColor(30, 41, 59);
-        docInstance.text("Feedback Report", 105, 60.5, { align: 'center' });
+        docInstance.text("Feedback Report", 105, titleY, { align: 'center' });
 
         docInstance.setDrawColor(99, 102, 241);
         docInstance.setLineWidth(0.5);
-        docInstance.line(75, 62.5, 135, 62.5);
+        docInstance.line(75, titleY + 2, 135, titleY + 2);
     };
 
     // ── Sentiment Analysis (server-side) ──────────────────────────────────────
@@ -640,7 +672,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     // ── Draw Page 1: Analytics + Sentiment ───────────────────────────────────
     drawHeader(doc);
 
-    let currentY = 70;
+    let currentY = headerHeight + 2;
 
     // Overall sentiment box
     if (totalSentiment > 0) {
@@ -688,7 +720,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         if (currentY > 240) {
             doc.addPage();
             drawHeader(doc);
-            currentY = 70;
+            currentY = headerHeight + 2;
         }
 
         doc.setFont("helvetica", "bold");
@@ -702,7 +734,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
             const entries = Object.entries(info.data);
             entries.forEach(([opt, count]) => {
                 if (currentY > 270) {
-                    doc.addPage(); drawHeader(doc); currentY = 70;
+                    doc.addPage(); drawHeader(doc); currentY = headerHeight + 2;
                 }
                 const pct = ((count / total) * 100).toFixed(1);
                 doc.setFont("helvetica", "normal");
@@ -742,7 +774,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
             currentY += 6;
 
             info.answers.slice(0, 3).forEach(({ text, sentiment }) => {
-                if (currentY > 268) { doc.addPage(); drawHeader(doc); currentY = 70; }
+                if (currentY > 268) { doc.addPage(); drawHeader(doc); currentY = headerHeight + 2; }
                 const sentColor = sentiment === 'Positive' ? [16, 185, 129] : sentiment === 'Negative' ? [239, 68, 68] : [245, 158, 11];
                 doc.setFont("helvetica", "italic");
                 doc.setFontSize(7.5);
@@ -807,8 +839,8 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     });
 
     autoTable(doc, {
-        startY: 68,
-        margin: { top: 68 },
+        startY: headerHeight,
+        margin: { top: headerHeight },
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
@@ -834,7 +866,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     });
 
     // Signatures footer on the last page
-    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 70) + 25;
+    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : headerHeight + 2) + 25;
     if (finalY > 250) {
         doc.addPage();
         drawHeader(doc);
