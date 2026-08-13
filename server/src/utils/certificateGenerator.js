@@ -75,145 +75,139 @@ const generateCertificate = async (registration, config) => {
         }
     }
 
+    // Helper: map fontStyle string to jsPDF-compatible style
+    const resolveStyle = (s) => {
+        if (s === 'bolditalic') return 'bolditalic';
+        if (s === 'bold')       return 'bold';
+        if (s === 'italic')     return 'italic';
+        return 'normal';
+    };
+
     // Process fields
     config.fields.forEach(field => {
         const fontSize = field.fontSize || 20;
         const color = field.color || '#000000';
-        const style = field.fontStyle || 'normal';
+        const style = resolveStyle(field.fontStyle);
         const align = field.alignment || 'left';
         const maxWidth = field.width || 600;
         const fontFamily = field.fontFamily ? field.fontFamily.toLowerCase() : 'helvetica';
 
         doc.setFontSize(fontSize);
-        doc.setFont(fontFamily, style);
+        try { doc.setFont(fontFamily, style); } catch { doc.setFont('helvetica', style); }
 
         if (field.type === 'Text') {
-            let sampleText = field.text || '';
-            let segments = [];
-            let currentIdx = 0;
-            const regex = /\{([^}]+)\}/g;
-            let match;
-            while ((match = regex.exec(sampleText)) !== null) {
-                if (match.index > currentIdx) {
-                    segments.push({ text: sampleText.substring(currentIdx, match.index), isVar: false });
-                }
-                const keyName = match[1];
-                const varValue = variables[keyName] !== undefined ? variables[keyName] : match[0];
-                segments.push({ text: varValue, isVar: true, originalVar: match[0] });
-                currentIdx = regex.lastIndex;
-            }
-            if (currentIdx < sampleText.length) {
-                segments.push({ text: sampleText.substring(currentIdx), isVar: false });
-            }
+            // ── Build word chunks (richText path or legacy fallback) ───────────
+            //
+            // richText: [{ text: string, style: 'normal'|'bold'|'italic'|'bolditalic' }]
+            // Each segment may contain {Variable} tokens; variables get per-var style overrides.
 
-            // Split segments into words
-            let wordsInfo = [];
-            segments.forEach(seg => {
-                let segText = String(seg.text);
-                let words = segText.split(' ');
+            const wordsInfo = [];
+
+            const pushWords = (text, wordStyle, isVar, originalVar) => {
+                const words = String(text).split(' ');
                 words.forEach((w, i) => {
-                    if (i < words.length - 1) {
-                        wordsInfo.push({ word: w + ' ', isVar: seg.isVar, originalVar: seg.originalVar });
-                    } else if (w.length > 0) {
-                        wordsInfo.push({ word: w, isVar: seg.isVar, originalVar: seg.originalVar });
+                    const word = i < words.length - 1 ? w + ' ' : w;
+                    if (word.length > 0) {
+                        wordsInfo.push({ word, style: wordStyle, isVar, originalVar });
                     }
                 });
-            });
+            };
 
-            // Group into lines based on max width
+            const tokenizeSegment = (rawText, segStyle) => {
+                const varRegex = /\{([^}]+)\}/g;
+                let cursor = 0;
+                let m;
+                while ((m = varRegex.exec(rawText)) !== null) {
+                    if (m.index > cursor) {
+                        pushWords(rawText.substring(cursor, m.index), segStyle, false, null);
+                    }
+                    const varKey  = m[0];          // e.g. '{Name}'
+                    const varValue = variables[m[1]] !== undefined ? variables[m[1]] : varKey;
+                    const varStyle = (field.variableFontStyles && field.variableFontStyles[varKey]) || segStyle;
+                    pushWords(varValue, varStyle, true, varKey);
+                    cursor = varRegex.lastIndex;
+                }
+                if (cursor < rawText.length) {
+                    pushWords(rawText.substring(cursor), segStyle, false, null);
+                }
+            };
+
+            if (field.richText && field.richText.length > 0) {
+                // ── NEW: per-segment styles ──────────────────────────────────
+                for (const seg of field.richText) {
+                    tokenizeSegment(seg.text || '', seg.style || 'normal');
+                }
+            } else {
+                // ── LEGACY: single style for whole field ────────────────────
+                tokenizeSegment(field.text || '', style);
+            }
+
+            // ── measure helper ────────────────────────────────────────────────
+            const measureText = (text, chunkStyle, chunkFontFam = fontFamily) => {
+                try { doc.setFont(chunkFontFam, resolveStyle(chunkStyle)); }
+                catch { doc.setFont('helvetica', resolveStyle(chunkStyle)); }
+                return doc.getStringUnitWidth(text) * doc.getFontSize() / doc.internal.scaleFactor;
+            };
+
+            // ── wrap into lines ───────────────────────────────────────────────
             let linesInfo = [];
             let currentLine = [];
             let currentLineWidth = 0;
-            
-            // Helper function to measure text in jsPDF
-            const measureText = (text, chunkStyle, chunkFontFam = fontFamily) => {
-                doc.setFont(chunkFontFam, chunkStyle);
-                return doc.getStringUnitWidth(text) * doc.getFontSize() / doc.internal.scaleFactor;
-            }
 
-            for (let i = 0; i < wordsInfo.length; i++) {
-                let wordObj = wordsInfo[i];
-                let textStyle = style;
-                let textFontFamily = fontFamily;
-                if (wordObj.isVar) {
-                    textStyle = (field.variableFontStyles && field.variableFontStyles[wordObj.originalVar]) || style;
-                    if (field.variableFontFamilies && field.variableFontFamilies[wordObj.originalVar]) {
-                        textFontFamily = field.variableFontFamilies[wordObj.originalVar];
-                    }
-                }
-                let wordWidth = measureText(wordObj.word, textStyle, textFontFamily);
-                
+            for (const wo of wordsInfo) {
+                const wFontFam = (wo.isVar && field.variableFontFamilies?.[wo.originalVar]) || fontFamily;
+                const wordWidth = measureText(wo.word, wo.style, wFontFam);
                 if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
                     linesInfo.push(currentLine);
-                    currentLine = [wordObj];
+                    currentLine = [wo];
                     currentLineWidth = wordWidth;
                 } else {
-                    currentLine.push(wordObj);
+                    currentLine.push(wo);
                     currentLineWidth += wordWidth;
                 }
             }
-            if (currentLine.length > 0) {
-                linesInfo.push(currentLine);
-            }
+            if (currentLine.length > 0) linesInfo.push(currentLine);
 
-            // Draw lines
+            // ── draw lines ────────────────────────────────────────────────────
             let y = field.y;
             const lineHeight = fontSize * 1.2;
-            
-            linesInfo.forEach(lineArray => {
+
+            linesInfo.forEach((lineArray, lineIdx) => {
+                const isLastLine = lineIdx === linesInfo.length - 1;
+
                 const lineWidth = lineArray.reduce((sum, w) => {
-                    let wStyle = style;
-                    let wFontFam = fontFamily;
-                    if (w.isVar) {
-                        wStyle = (field.variableFontStyles && field.variableFontStyles[w.originalVar]) || style;
-                        if (field.variableFontFamilies && field.variableFontFamilies[w.originalVar]) {
-                            wFontFam = field.variableFontFamilies[w.originalVar];
-                        }
-                    }
-                    return sum + measureText(w.word, wStyle, wFontFam);
+                    const wFontFam = (w.isVar && field.variableFontFamilies?.[w.originalVar]) || fontFamily;
+                    return sum + measureText(w.word, w.style, wFontFam);
                 }, 0);
-                
+
                 let startX = field.x;
                 if (align === 'center') startX = field.x - lineWidth / 2;
-                if (align === 'right') startX = field.x - lineWidth;
-                
+                if (align === 'right')  startX = field.x - lineWidth;
+
                 let extraSpacePerWord = 0;
-                let isLastLine = (linesInfo.indexOf(lineArray) === linesInfo.length - 1);
-                
                 if (align === 'justify' && !isLastLine && lineArray.length > 1) {
-                    let numSpaces = 0;
-                    lineArray.forEach(w => {
-                        if (w.word.endsWith(' ')) numSpaces++;
-                    });
-                    if (numSpaces > 0) {
-                        extraSpacePerWord = (maxWidth - lineWidth) / numSpaces;
-                    }
+                    const numSpaces = lineArray.filter(w => w.word.endsWith(' ')).length;
+                    if (numSpaces > 0) extraSpacePerWord = (maxWidth - lineWidth) / numSpaces;
                 }
 
                 let x = startX;
                 lineArray.forEach(chunk => {
-                    let textColor = color;
-                    let textStyle = style;
-                    let textFontFam = fontFamily;
-                    if (chunk.isVar) {
-                        textColor = (field.variableColors && field.variableColors[chunk.originalVar]) || color;
-                        textStyle = (field.variableFontStyles && field.variableFontStyles[chunk.originalVar]) || style;
-                        if (field.variableFontFamilies && field.variableFontFamilies[chunk.originalVar]) {
-                            textFontFam = field.variableFontFamilies[chunk.originalVar];
-                        }
-                    }
+                    const textColor  = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || color;
+                    const textFontFam = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || fontFamily;
+
                     doc.setTextColor(textColor);
-                    doc.setFont(textFontFam, textStyle);
+                    try { doc.setFont(textFontFam, resolveStyle(chunk.style)); }
+                    catch { doc.setFont('helvetica', resolveStyle(chunk.style)); }
                     doc.text(chunk.word, x, y, { align: 'left' });
 
                     if (chunk.isVar && field.underlineVariables) {
                         doc.setDrawColor(textColor);
                         doc.setLineWidth(1);
-                        let drawWidth = measureText(chunk.word.trimEnd(), textStyle, textFontFam);
+                        const drawWidth = measureText(chunk.word.trimEnd(), chunk.style, textFontFam);
                         doc.line(x, y + 2, x + drawWidth, y + 2);
                     }
 
-                    x += measureText(chunk.word, textStyle, textFontFam);
+                    x += measureText(chunk.word, chunk.style, textFontFam);
                     if (align === 'justify' && !isLastLine && chunk.word.endsWith(' ')) {
                         x += extraSpacePerWord;
                     }
