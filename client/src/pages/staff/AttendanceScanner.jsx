@@ -171,16 +171,28 @@ const AttendanceScanner = () => {
             const res = await axios.get(`/api/attendance/export/${selectedEvent}`, {
                 responseType: 'blob'
             });
+            // Check if server returned an error as JSON (wrapped in blob)
+            const contentType = res.headers['content-type'] || '';
+            if (contentType.includes('application/json')) {
+                const text = await res.data.text();
+                const errData = JSON.parse(text);
+                throw new Error(errData.message || 'Export failed');
+            }
             const eventTitle = events.find(e => e._id === selectedEvent)?.title || 'Event';
-            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const url = window.URL.createObjectURL(new Blob([res.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }));
             const link = document.createElement('a');
             link.href = url;
             link.download = `Attendance_${eventTitle.replace(/\s/g, '_')}.xlsx`;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             toast.success('Attendance sheet downloaded!');
-        } catch {
-            toast.error('Download failed');
+        } catch (error) {
+            const msg = error?.response?.data?.message || error?.message || 'Download failed';
+            toast.error(msg);
         } finally {
             setIsDownloading('');
         }
@@ -246,62 +258,199 @@ const AttendanceScanner = () => {
                 hodSignUrl ? getBase64Image(hodSignUrl) : Promise.resolve(null)
             ]);
 
+            // Setup Header drawing function that will be executed only on the first page
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            const titleLines = doc.splitTextToSize(event.title || '', 62);
+            const venueLines = doc.splitTextToSize(event.venue || 'N/A', 62);
+            const leftHeight = 44.5 + ((titleLines.length - 1) * 4) + 5.5 + 3.5;
+            const rightHeight = 44.5 + 5.5 + ((venueLines.length - 1) * 4) + 3.5;
+            const boxBottom = Math.max(leftHeight, rightHeight);
+            const titleY = boxBottom + 7.5;
+            const headerHeight = titleY + 6.5;
+
+            const drawHeader = (docInstance) => {
+                // Left Logo (IIC)
+                if (iicLogoBase64) {
+                    docInstance.addImage(iicLogoBase64, 'PNG', 15, 12, 24, 24);
+                } else {
+                    docInstance.setDrawColor(200, 200, 200);
+                    docInstance.setFillColor(245, 245, 245);
+                    docInstance.rect(15, 12, 24, 24, 'FD');
+                    docInstance.setFont("helvetica", "bold");
+                    docInstance.setFontSize(8);
+                    docInstance.setTextColor(150, 150, 150);
+                    docInstance.text("IIC LOGO", 27, 24, { align: 'center' });
+                }
+
+                // Right Logo (Digiflash)
+                if (digiflashLogoBase64) {
+                    docInstance.addImage(digiflashLogoBase64, 'PNG', 171, 12, 24, 24);
+                } else {
+                    docInstance.setDrawColor(200, 200, 200);
+                    docInstance.setFillColor(245, 245, 245);
+                    docInstance.rect(171, 12, 24, 24, 'FD');
+                    docInstance.setFont("helvetica", "bold");
+                    docInstance.setFontSize(8);
+                    docInstance.setTextColor(150, 150, 150);
+                    docInstance.text("DIGIFLASH", 183, 24, { align: 'center' });
+                }
+
+                // Center Header Texts
+                docInstance.setTextColor(15, 23, 42); // slate-900
+
+                docInstance.setFont("helvetica", "bold");
+                docInstance.setFontSize(10.5);
+                docInstance.text("Dr. Mahalingam College of Engineering and Technology, Pollachi", 105, 16, { align: 'center' });
+
+                docInstance.setFont("helvetica", "bold");
+                docInstance.setFontSize(9.5);
+                docInstance.text("Department of Computer Science and Engineering", 105, 21, { align: 'center' });
+
+                docInstance.setFont("helvetica", "normal");
+                docInstance.setFontSize(9);
+                docInstance.text("Digiflash proudly organizes", 105, 26, { align: 'center' });
+
+                docInstance.setFont("helvetica", "bold");
+                docInstance.setFontSize(11.5);
+                docInstance.text(settings.symposiumName, 105, 31, { align: 'center' });
+
+                docInstance.setFont("helvetica", "bold");
+                docInstance.setFontSize(8.5);
+                docInstance.text(settings.symposiumType, 105, 35.5, { align: 'center' });
+
+                // Event details box borders
+                docInstance.setDrawColor(0, 0, 0); // black border as per image
+                docInstance.setLineWidth(0.5);
+
+                // Pre-calculate wrapping for Name of the Event
+                docInstance.setFontSize(10);
+                docInstance.setFont("helvetica", "normal");
+                const nameLabelWidth = docInstance.getTextWidth("Name of the Event: ");
+                docInstance.setFont("helvetica", "bold");
+                
+                let titleLinesArr = [];
+                let currentLine = "";
+                let currentLineWidth = nameLabelWidth;
+                const maxCellWidth = 88; // 90 width - 2 padding
+
+                const titleWords = (event.title || '').split(' ');
+                titleWords.forEach(word => {
+                    const wWidth = docInstance.getTextWidth(word + ' ');
+                    if (currentLineWidth + wWidth > maxCellWidth && currentLine !== "") {
+                        titleLinesArr.push(currentLine);
+                        currentLine = word + ' ';
+                        currentLineWidth = docInstance.getTextWidth(currentLine);
+                    } else {
+                        currentLine += word + ' ';
+                        currentLineWidth += wWidth;
+                    }
+                });
+                if (currentLine) titleLinesArr.push(currentLine);
+
+                // Pre-calculate wrapping for Venue
+                docInstance.setFont("helvetica", "normal");
+                const venueLabelWidth = docInstance.getTextWidth("Venue: ");
+                docInstance.setFont("helvetica", "bold");
+                
+                let venueLinesObj = [];
+                let vLine = "";
+                let vLineWidth = venueLabelWidth;
+
+                const venueWords = (event.venue || 'N/A').split(' ');
+                venueWords.forEach(word => {
+                    const wWidth = docInstance.getTextWidth(word + ' ');
+                    if (vLineWidth + wWidth > maxCellWidth && vLine !== "") {
+                        venueLinesObj.push(vLine);
+                        vLine = word + ' ';
+                        vLineWidth = docInstance.getTextWidth(vLine);
+                    } else {
+                        vLine += word + ' ';
+                        vLineWidth += wWidth;
+                    }
+                });
+                if (vLine) venueLinesObj.push(vLine);
+
+                // Calculate heights
+                const lineHeight = 5.5;
+                const nameHeight = (titleLinesArr.length * lineHeight);
+                const dateHeight = lineHeight;
+                const topRowHeight = Math.max(nameHeight, dateHeight) + 4; // Add padding
+
+                const timingHeight = lineHeight;
+                const venueHeight = (venueLinesObj.length * lineHeight);
+                const bottomRowHeight = Math.max(timingHeight, venueHeight) + 4; // Add padding
+
+                const boxHeight = topRowHeight + bottomRowHeight;
+                const boxTop = 42;
+                const midY = boxTop + topRowHeight;
+                const boxBottomY = boxTop + boxHeight;
+
+                // Draw Box
+                docInstance.rect(15, boxTop, 180, boxHeight); // outer box
+                docInstance.line(105, boxTop, 105, boxBottomY); // middle vertical line
+                docInstance.line(15, midY, 195, midY); // middle horizontal line
+
+                // Draw Left Column - Top Row (Name of the Event)
+                let nameY = boxTop + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Name of the Event: ", 17, nameY);
+                docInstance.setFont("helvetica", "bold");
+                titleLinesArr.forEach((line, idx) => {
+                    if (idx === 0) {
+                        docInstance.text(line, 17 + nameLabelWidth, nameY);
+                    } else {
+                        docInstance.text(line, 17, nameY + (idx * lineHeight));
+                    }
+                });
+
+                // Draw Right Column - Top Row (Date)
+                let dateY = boxTop + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Date: ", 107, dateY);
+                docInstance.setFont("helvetica", "bold");
+                let formattedDate = new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+                docInstance.text(formattedDate, 107 + docInstance.getTextWidth("Date: "), dateY);
+
+                // Draw Left Column - Bottom Row (Timing)
+                let timingY = midY + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Time: ", 17, timingY);
+                docInstance.setFont("helvetica", "bold");
+                docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 17 + docInstance.getTextWidth("Time: "), timingY);
+
+                // Draw Right Column - Bottom Row (Venue)
+                let venueY = midY + 5.5;
+                docInstance.setFont("helvetica", "normal");
+                docInstance.text("Venue: ", 107, venueY);
+                docInstance.setFont("helvetica", "bold");
+                venueLinesObj.forEach((line, idx) => {
+                    if (idx === 0) {
+                        docInstance.text(line, 107 + venueLabelWidth, venueY);
+                    } else {
+                        docInstance.text(line, 107, venueY + (idx * lineHeight));
+                    }
+                });
+                
+                docInstance.setFont('helvetica', 'bold');
+                docInstance.setFontSize(13);
+                docInstance.setTextColor(30, 41, 59);
+                docInstance.text('Attendance Sheet', 105, titleY, { align: 'center' });
+                
+                // Add underline
+                docInstance.setDrawColor(226, 232, 240); // slate-200
+                docInstance.setLineWidth(1);
+                docInstance.line(85, titleY + 2, 125, titleY + 2);
+            };
+
+            // Call it once on the first page
+            drawHeader(doc);
+
+
             const cleanSection = (sec) => {
                 if (!sec) return '';
                 const s = String(sec).trim();
                 return (s === '' || s.toLowerCase() === 'nil') ? '' : s;
-            };
-
-
-            const drawHeader = (docInstance) => {
-                if (iicLogoBase64) {
-                    docInstance.addImage(iicLogoBase64, 'PNG', 15, 12, 24, 24);
-                } else {
-                    docInstance.setDrawColor(200, 200, 200); docInstance.setFillColor(245, 245, 245);
-                    docInstance.rect(15, 12, 24, 24, 'FD');
-                    docInstance.setFont('helvetica', 'bold'); docInstance.setFontSize(8);
-                    docInstance.setTextColor(150, 150, 150);
-                    docInstance.text('IIC LOGO', 27, 24, { align: 'center' });
-                }
-                if (digiflashLogoBase64) {
-                    docInstance.addImage(digiflashLogoBase64, 'PNG', 171, 12, 24, 24);
-                } else {
-                    docInstance.setDrawColor(200, 200, 200); docInstance.setFillColor(245, 245, 245);
-                    docInstance.rect(171, 12, 24, 24, 'FD');
-                    docInstance.setFont('helvetica', 'bold'); docInstance.setFontSize(8);
-                    docInstance.setTextColor(150, 150, 150);
-                    docInstance.text('DIGIFLASH', 183, 24, { align: 'center' });
-                }
-                docInstance.setTextColor(15, 23, 42);
-                docInstance.setFont('helvetica', 'bold'); docInstance.setFontSize(10.5);
-                docInstance.text('Dr. Mahalingam College of Engineering and Technology, Pollachi', 105, 16, { align: 'center' });
-                docInstance.setFontSize(9.5);
-                docInstance.text('Department of Computer Science and Engineering', 105, 21, { align: 'center' });
-                docInstance.setFont('helvetica', 'normal'); docInstance.setFontSize(9);
-                docInstance.text('Digiflash proudly organizes', 105, 26, { align: 'center' });
-                docInstance.setFont('helvetica', 'bold'); docInstance.setFontSize(11.5);
-                docInstance.text(settings.symposiumName, 105, 31, { align: 'center' });
-                docInstance.setFontSize(8.5);
-                docInstance.text(settings.symposiumType, 105, 35.5, { align: 'center' });
-                docInstance.setDrawColor(200, 220, 240); docInstance.setLineWidth(0.3);
-                docInstance.rect(15, 40, 180, 13);
-                docInstance.line(110, 40, 110, 53);
-                docInstance.setFont('helvetica', 'normal'); docInstance.setFontSize(9);
-                docInstance.text('Name of the Event: ', 17, 45);
-                docInstance.setFont('helvetica', 'bold'); docInstance.text(event.title, 45, 45);
-                docInstance.setFont('helvetica', 'normal'); docInstance.text('Date: ', 17, 50.5);
-                docInstance.setFont('helvetica', 'bold');
-                docInstance.text(new Date(event.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }), 27, 50.5);
-                docInstance.setFont('helvetica', 'normal'); docInstance.text('Timing: ', 113, 45);
-                docInstance.setFont('helvetica', 'bold');
-                docInstance.text(`${event.startTime || 'N/A'} - ${event.endTime || 'N/A'}`, 125, 45);
-                docInstance.setFont('helvetica', 'normal'); docInstance.text('Venue: ', 113, 50.5);
-                docInstance.setFont('helvetica', 'bold'); docInstance.text(event.venue, 125, 50.5);
-                docInstance.setFont('helvetica', 'bold'); docInstance.setFontSize(13);
-                docInstance.setTextColor(30, 41, 59);
-                docInstance.text('Attendance Sheet', 105, 60.5, { align: 'center' });
-                docInstance.setDrawColor(226, 232, 240);
-                docInstance.line(85, 62.5, 125, 62.5);
             };
 
             const head = [['S.No', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Signature of the student']];
@@ -363,7 +512,7 @@ const AttendanceScanner = () => {
             );
 
             autoTable(doc, {
-                startY: 68, margin: { top: 68 }, head, body, theme: 'grid',
+                startY: headerHeight, margin: { top: 15 }, head, body, theme: 'grid',
                 headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', halign: 'center' },
                 styles: { fontSize: 8, cellPadding: 4, verticalAlign: 'middle', halign: 'center' },
                 columnStyles: {
@@ -373,7 +522,9 @@ const AttendanceScanner = () => {
                     3: { halign: 'center', cellWidth: 40 },
                     4: { halign: 'center', cellWidth: 40, minCellHeight: 18 }
                 },
-                didDrawPage: () => drawHeader(doc),
+                didDrawPage: (data) => {
+                    // Header is already drawn manually on page 1
+                },
                 didDrawCell: (data) => {
                     if (data.section === 'body' && data.column.index === 4) {
                         const sigData = signaturesList[data.row.index];
@@ -390,8 +541,8 @@ const AttendanceScanner = () => {
                 }
             });
 
-            let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 70) + 25;
-            if (finalY > 250) { doc.addPage(); finalY = 85; }
+            let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : headerHeight) + 20;
+            if (finalY > 265) { doc.addPage(); finalY = 25; }
 
             doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
             if (assocSignBase64) doc.addImage(assocSignBase64, 'PNG', 35, finalY - 12, 30, 15);
