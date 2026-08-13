@@ -277,12 +277,12 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         // Calculate heights
         const lineHeight = 5.5;
         const nameHeight = (titleLines.length * lineHeight);
-        const timingHeight = lineHeight;
-        const topRowHeight = Math.max(nameHeight, timingHeight) + 4; // Add padding
-
         const dateHeight = lineHeight;
+        const topRowHeight = Math.max(nameHeight, dateHeight) + 4; // Add padding
+
+        const timingHeight = lineHeight;
         const venueHeight = (venueLinesObj.length * lineHeight);
-        const bottomRowHeight = Math.max(dateHeight, venueHeight) + 4; // Add padding
+        const bottomRowHeight = Math.max(timingHeight, venueHeight) + 4; // Add padding
 
         const boxHeight = topRowHeight + bottomRowHeight;
         const boxTop = 42;
@@ -295,32 +295,32 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         docInstance.line(15, midY, 195, midY); // middle horizontal line
 
         // Draw Left Column - Top Row (Name of the Event)
-        let leftY = boxTop + 5.5;
+        let nameY = boxTop + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Name of the Event: ", 17, leftY);
+        docInstance.text("Name of the Event: ", 17, nameY);
         docInstance.setFont("helvetica", "bold");
         titleLines.forEach((line, idx) => {
             if (idx === 0) {
-                docInstance.text(line, 17 + nameLabelWidth, leftY);
+                docInstance.text(line, 17 + nameLabelWidth, nameY);
             } else {
-                docInstance.text(line, 17, leftY + (idx * lineHeight));
+                docInstance.text(line, 17, nameY + (idx * lineHeight));
             }
         });
 
-        // Draw Left Column - Bottom Row (Date)
-        let dateY = midY + 5.5;
+        // Draw Right Column - Top Row (Date)
+        let dateY = boxTop + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Date: ", 17, dateY);
+        docInstance.text("Date: ", 107, dateY);
         docInstance.setFont("helvetica", "bold");
         let formattedDate = new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        docInstance.text(formattedDate, 17 + docInstance.getTextWidth("Date: "), dateY);
+        docInstance.text(formattedDate, 107 + docInstance.getTextWidth("Date: "), dateY);
 
-        // Draw Right Column - Top Row (Timing)
-        let rightY = boxTop + 5.5;
+        // Draw Left Column - Bottom Row (Timing)
+        let timingY = midY + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Timing: ", 107, rightY);
+        docInstance.text("Time: ", 17, timingY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 107 + docInstance.getTextWidth("Timing: "), rightY);
+        docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 17 + docInstance.getTextWidth("Time: "), timingY);
 
         // Draw Right Column - Bottom Row (Venue)
         let venueY = midY + 5.5;
@@ -347,6 +347,9 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         docInstance.setDrawColor(226, 232, 240);
         docInstance.line(85, titleY + 2, 125, titleY + 2);
     };
+
+    // Draw header only on the first page before the table starts
+    drawHeader(doc);
 
     // Columns config (specifically tailored for PDF)
     const isTeamEvent = event.participationType === 'Team';
@@ -448,7 +451,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
 
     autoTable(doc, {
         startY: headerHeight,
-        margin: { top: headerHeight },
+        margin: { top: 15 },
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
@@ -486,7 +489,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
             }
         ),
         didDrawPage: (data) => {
-            drawHeader(doc);
+            // Header is already drawn manually on page 1
         },
         didDrawCell: (data) => {
             if (isAttendance && data.section === 'body' && data.column.index === 4) {
@@ -504,11 +507,11 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         }
     });
 
-    // Signatures footer on the last page
-    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : headerHeight + 2) + 25;
-    if (finalY > 250) {
+    // Signatures immediately below the table on the last page
+    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : headerHeight + 2) + 20;
+    if (finalY > 265) {
         doc.addPage();
-        finalY = 85;
+        finalY = 25;
     }
 
     doc.setFont("helvetica", "bold");
@@ -695,12 +698,12 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         // Calculate heights
         const lineHeight = 5.5;
         const nameHeight = (titleLines.length * lineHeight);
-        const timingHeight = lineHeight;
-        const topRowHeight = Math.max(nameHeight, timingHeight) + 4; // Add padding
-
         const dateHeight = lineHeight;
+        const topRowHeight = Math.max(nameHeight, dateHeight) + 4; // Add padding
+
+        const timingHeight = lineHeight;
         const venueHeight = (venueLinesObj.length * lineHeight);
-        const bottomRowHeight = Math.max(dateHeight, venueHeight) + 4; // Add padding
+        const bottomRowHeight = Math.max(timingHeight, venueHeight) + 4; // Add padding
 
         const boxHeight = topRowHeight + bottomRowHeight;
         const boxTop = 42;
@@ -713,32 +716,32 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         docInstance.line(15, midY, 195, midY); // middle horizontal line
 
         // Draw Left Column - Top Row (Name of the Event)
-        let leftY = boxTop + 5.5;
+        let nameY = boxTop + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Name of the Event: ", 17, leftY);
+        docInstance.text("Name of the Event: ", 17, nameY);
         docInstance.setFont("helvetica", "bold");
         titleLines.forEach((line, idx) => {
             if (idx === 0) {
-                docInstance.text(line, 17 + nameLabelWidth, leftY);
+                docInstance.text(line, 17 + nameLabelWidth, nameY);
             } else {
-                docInstance.text(line, 17, leftY + (idx * lineHeight));
+                docInstance.text(line, 17, nameY + (idx * lineHeight));
             }
         });
 
-        // Draw Left Column - Bottom Row (Date)
-        let dateY = midY + 5.5;
+        // Draw Right Column - Top Row (Date)
+        let dateY = boxTop + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Date: ", 17, dateY);
+        docInstance.text("Date: ", 107, dateY);
         docInstance.setFont("helvetica", "bold");
         let formattedDate = new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        docInstance.text(formattedDate, 17 + docInstance.getTextWidth("Date: "), dateY);
+        docInstance.text(formattedDate, 107 + docInstance.getTextWidth("Date: "), dateY);
 
-        // Draw Right Column - Top Row (Timing)
-        let rightY = boxTop + 5.5;
+        // Draw Left Column - Bottom Row (Timing)
+        let timingY = midY + 5.5;
         docInstance.setFont("helvetica", "normal");
-        docInstance.text("Timing: ", 107, rightY);
+        docInstance.text("Time: ", 17, timingY);
         docInstance.setFont("helvetica", "bold");
-        docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 107 + docInstance.getTextWidth("Timing: "), rightY);
+        docInstance.text(`${event.startTime || 'N/A'} to ${event.endTime || 'N/A'}`, 17 + docInstance.getTextWidth("Time: "), timingY);
 
         // Draw Right Column - Bottom Row (Venue)
         let venueY = midY + 5.5;
@@ -766,6 +769,9 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         docInstance.setLineWidth(0.5);
         docInstance.line(75, titleY + 2, 135, titleY + 2);
     };
+
+    // Draw header only on the first page before the table starts
+    drawHeader(doc);
 
     // ── Sentiment Analysis (server-side) ──────────────────────────────────────
     const POSITIVE_WORDS = new Set(['excellent','amazing','great','good','awesome','fantastic','wonderful',
@@ -881,8 +887,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     for (const [label, info] of Object.entries(summary)) {
         if (currentY > 240) {
             doc.addPage();
-            drawHeader(doc);
-            currentY = headerHeight + 2;
+            currentY = 15;
         }
 
         doc.setFont("helvetica", "bold");
@@ -896,7 +901,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
             const entries = Object.entries(info.data);
             entries.forEach(([opt, count]) => {
                 if (currentY > 270) {
-                    doc.addPage(); drawHeader(doc); currentY = headerHeight + 2;
+                    doc.addPage(); currentY = 15;
                 }
                 const pct = ((count / total) * 100).toFixed(1);
                 doc.setFont("helvetica", "normal");
@@ -936,7 +941,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
             currentY += 6;
 
             info.answers.slice(0, 3).forEach(({ text, sentiment }) => {
-                if (currentY > 268) { doc.addPage(); drawHeader(doc); currentY = headerHeight + 2; }
+                if (currentY > 268) { doc.addPage(); currentY = 15; }
                 const sentColor = sentiment === 'Positive' ? [16, 185, 129] : sentiment === 'Negative' ? [239, 68, 68] : [245, 158, 11];
                 doc.setFont("helvetica", "italic");
                 doc.setFontSize(7.5);
@@ -968,7 +973,6 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
 
     // ── Page 2+: Detailed Responses Table ────────────────────────────────────
     doc.addPage();
-    drawHeader(doc);
 
     const tableColumn = ['#', 'Participant', 'Reg Number', 'Sentiment'];
     event.feedbackForm.forEach(f => tableColumn.push(f.label));
@@ -1001,8 +1005,8 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     });
 
     autoTable(doc, {
-        startY: headerHeight,
-        margin: { top: headerHeight },
+        startY: 15, // Detailed table is on a new page without header
+        margin: { top: 15 },
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
@@ -1015,7 +1019,7 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
             3: { cellWidth: 22, halign: 'center' },
         },
         didDrawPage: (data) => {
-            drawHeader(doc);
+            // No header
         },
         didParseCell: (data) => {
             if (data.column.index === 3 && data.section === 'body') {
@@ -1027,12 +1031,11 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
         }
     });
 
-    // Signatures footer on the last page
-    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : headerHeight + 2) + 25;
-    if (finalY > 250) {
+    // Signatures immediately below the table on the last page
+    let finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 15) + 20;
+    if (finalY > 265) {
         doc.addPage();
-        drawHeader(doc);
-        finalY = 85;
+        finalY = 25;
     }
 
     doc.setFont("helvetica", "bold");
