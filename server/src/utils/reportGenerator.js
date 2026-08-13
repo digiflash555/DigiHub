@@ -152,6 +152,8 @@ const generatePDFReport = async (registrations, event, options = {}) => {
     const iicLogoObj = await getLogoBase64(settings.iicLogo);
     const digiflashLogoObj = await getLogoBase64(settings.digiflashLogo);
 
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
     const titleLines = doc.splitTextToSize(event.title, 62);
     const venueLines = doc.splitTextToSize(event.venue || 'N/A', 62);
     const leftHeight = 44.5 + ((titleLines.length - 1) * 4) + 5.5 + 3.5;
@@ -490,6 +492,8 @@ const generateFeedbackPDFReport = async (feedbacks, event, options = {}) => {
     const iicLogoObj = await getLogoBase64(settings.iicLogo);
     const digiflashLogoObj = await getLogoBase64(settings.digiflashLogo);
 
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
     const titleLines = doc.splitTextToSize(event.title, 62);
     const venueLines = doc.splitTextToSize(event.venue || 'N/A', 62);
     const leftHeight = 44.5 + ((titleLines.length - 1) * 4) + 5.5 + 3.5;
