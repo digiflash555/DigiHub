@@ -16,10 +16,11 @@ const autoUpdateStatuses = async () => {
             const date = event.eventDate.getUTCDate();
             
             const [startHours, startMinutes] = (event.startTime || '00:00').split(':').map(Number);
-            const startDateTime = new Date(year, month, date, startHours || 0, startMinutes || 0, 0, 0);
-
-            // End time is set to the end of the event date (23:59:59.999) so events remain active and open on their event date
-            const endDateTime = new Date(year, month, date, 23, 59, 59, 999);
+            const [endHours, endMinutes] = (event.endTime || '23:59').split(':').map(Number);
+            
+            const startDateTime = new Date(event.eventDate.getTime() + (startHours * 3600000) + (startMinutes * 60000) - (5.5 * 3600000));
+            const msOffset = event.endTime ? 0 : 59000;
+            const endDateTime = new Date(event.eventDate.getTime() + (endHours * 3600000) + (endMinutes * 60000) + msOffset - (5.5 * 3600000));
             
             let newStatus = event.status;
             if (now < startDateTime) {
