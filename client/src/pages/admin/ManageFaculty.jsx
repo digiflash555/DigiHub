@@ -28,7 +28,9 @@ const ManageFaculty = () => {
         designation: 'Assistant Professor',
         role: 'Faculty',
         assignedYear: 'I',
-        assignedSection: 'A'
+        assignedSection: 'A',
+        bio: '',
+        profileImage: null
     });
     const [showForm, setShowForm] = useState(false);
 
@@ -54,7 +56,9 @@ const ManageFaculty = () => {
             designation: 'Assistant Professor',
             role: 'Faculty',
             assignedYear: 'I',
-            assignedSection: 'A'
+            assignedSection: 'A',
+            bio: '',
+            profileImage: null
         });
         setEditingId(null);
         setShowForm(false);
@@ -73,7 +77,9 @@ const ManageFaculty = () => {
             designation: fac.designation || 'Assistant Professor',
             role: fac.role,
             assignedYear: fac.assignedYear || 'I',
-            assignedSection: fac.assignedSection || 'A'
+            assignedSection: fac.assignedSection || 'A',
+            bio: fac.bio || '',
+            profileImage: null
         });
         setShowForm(true);
     };
@@ -94,13 +100,22 @@ const ManageFaculty = () => {
         e.preventDefault();
         setIsCreating(true);
         try {
+            const fd = new FormData();
+            Object.keys(form).forEach(key => {
+                if (key === 'profileImage') {
+                    if (form.profileImage) fd.append('profileImage', form.profileImage);
+                } else if (key === 'password' && editingId && !form.password) {
+                    // Skip empty password when editing
+                } else {
+                    fd.append(key, form[key]);
+                }
+            });
+
             if (editingId) {
-                const updateData = { ...form };
-                if (!updateData.password) delete updateData.password;
-                await axios.put(`/api/auth/users/${editingId}`, updateData);
+                await axios.put(`/api/auth/users/${editingId}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
                 toast.success('Account updated successfully!');
             } else {
-                await axios.post(`/api/auth/create-faculty`, form);
+                await axios.post(`/api/auth/create-faculty`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
                 toast.success(`${form.role} account created for ${form.username}!`);
             }
             resetForm();
@@ -218,6 +233,26 @@ const ManageFaculty = () => {
                                         <option value="Head of the Department">Head of the Department</option>
                                     </select>
                                 </div>
+                                {(form.role === 'Head of the Department' || form.role === 'Admin') && (
+                                    <>
+                                        <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+                                            <label className="text-xs font-black text-slate-900 dark:text-slate-400 uppercase tracking-widest pl-1">Bio / Message</label>
+                                            <textarea
+                                                className="input-premium h-24 resize-none"
+                                                placeholder="Enter bio or message for home page"
+                                                value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+                                            <label className="text-xs font-black text-slate-900 dark:text-slate-400 uppercase tracking-widest pl-1">Profile Photo</label>
+                                            <input
+                                                type="file" accept="image/*"
+                                                className="input-premium cursor-pointer file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:bg-primary-50 dark:file:bg-primary-500/10 file:text-primary-700 dark:file:text-primary-400 file:font-black file:text-xs"
+                                                onChange={e => setForm({ ...form, profileImage: e.target.files[0] })}
+                                            />
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             <div className="flex justify-end gap-4">
                                 <button type="button" onClick={resetForm} className="px-8 py-3 rounded-2xl text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-[#2a2e36] transition-all">Cancel</button>
