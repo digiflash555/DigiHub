@@ -29,11 +29,11 @@ router.get('/class-students', protect, authorize('Admin'), getClassStudents);
 
 // Admin-only routes
 router.post('/create-association-member', protect, authorize('Admin'), createAssociationMember);
-router.post('/create-faculty', protect, authorize('Admin'), createFaculty);
+router.post('/create-faculty', protect, authorize('Admin'), upload.single('profileImage'), createFaculty);
 router.put('/member-status/:id', protect, authorize('Admin'), updateMemberStatus);
 router.put('/move-all-past', protect, authorize('Admin'), moveAllToPastMembers);
 router.get('/users', protect, authorize('Admin'), getAllUsers);
-router.put('/users/:id', protect, authorize('Admin'), updateUserById);
+router.put('/users/:id', protect, authorize('Admin'), upload.single('profileImage'), updateUserById);
 router.delete('/users/:id', protect, authorize('Admin'), deleteUserById);
 
 module.exports = router;
