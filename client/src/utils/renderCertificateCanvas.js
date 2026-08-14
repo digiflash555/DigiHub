@@ -55,14 +55,16 @@ export const renderCertificateCanvas = async (
     participantData,
     eventData,
     config,
-    registrationId = ''
+    registrationId = '',
+    dpr = 1
 ) => {
     const W = 800;
     const H = 565;
-    canvas.width  = W;
-    canvas.height = H;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
 
     const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
     // ── 1. Background / template image ────────────────────────────────────────
@@ -266,7 +268,8 @@ export const renderCertificateCanvas = async (
 // ─── PDF export ───────────────────────────────────────────────────────────────
 
 /**
- * Render a certificate onto a hidden canvas, export as a PDF, and trigger download.
+ * Render a certificate onto a hidden high-DPI canvas, export as a PDF, and trigger download.
+ * Uses a 4× device-pixel-ratio so the resulting PDF is ~300 DPI print-quality.
  *
  * @param {object} participantData
  * @param {object} eventData
@@ -281,22 +284,29 @@ export const downloadCertificateAsPDF = async (
     registrationId = '',
     filename = 'certificate.pdf'
 ) => {
-    // Render on an offscreen canvas
-    const canvas = document.createElement('canvas');
-    await renderCertificateCanvas(canvas, participantData, eventData, config, registrationId);
+    // ------------------------------------------------------------------
+    // 1. Render on a 6× super-sampled offscreen canvas.
+    // ------------------------------------------------------------------
+    const DPR = 6; // 6× → 4800×3390 px ≈ 400 DPI on A4 landscape
+    const hiResCanvas = document.createElement('canvas');
 
-    // Convert canvas → high-quality PNG data URL
-    const imgDataUrl = canvas.toDataURL('image/png', 1.0);
+    await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
 
-    // Dynamically import jsPDF (already a client dependency)
+    // ------------------------------------------------------------------
+    // 2. Export the hi-res canvas as a lossless PNG to ensure text
+    //    edges are perfectly sharp with zero compression artifacts.
+    // ------------------------------------------------------------------
+    const imgDataUrl = hiResCanvas.toDataURL('image/png');
+
+    // ------------------------------------------------------------------
+    // 3. Embed into an A4-landscape PDF — fills the page edge-to-edge.
+    // ------------------------------------------------------------------
     const { jsPDF } = await import('jspdf');
 
-    // A4 landscape: 297 mm × 210 mm
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pW  = pdf.internal.pageSize.getWidth();   // 297
-    const pH  = pdf.internal.pageSize.getHeight();  // 210
+    const pW  = pdf.internal.pageSize.getWidth();   // 297 mm
+    const pH  = pdf.internal.pageSize.getHeight();  // 210 mm
 
-    // Stretch the 800×565 canvas to fill A4 landscape exactly (no margins)
-    pdf.addImage(imgDataUrl, 'PNG', 0, 0, pW, pH);
+    pdf.addImage(imgDataUrl, 'PNG', 0, 0, pW, pH, undefined, 'FAST');
     pdf.save(filename);
 };
