@@ -207,7 +207,7 @@ exports.createFaculty = async (req, res, next) => {
         const { 
             username, email, password, employeeId, 
             phone, gender, department, designation, 
-            role, assignedYear, assignedSection 
+            role, assignedYear, assignedSection, bio 
         } = req.body;
 
         const userExists = await User.findOne({ email });
@@ -225,7 +225,9 @@ exports.createFaculty = async (req, res, next) => {
             phone: phone || undefined,
             gender,
             department,
-            designation
+            designation,
+            bio: bio || '',
+            profileImage: req.file ? req.file.path : 'default-profile.png'
         });
 
         if (faculty) {
@@ -429,7 +431,7 @@ exports.updateUserById = async (req, res, next) => {
             username, email, role, registrationNumber, phone, 
             gender, yearAndDept, section, passoutYear, employeeId, 
             department, designation, assignedYear, assignedSection,
-            membershipStatus, associationRole, dateOfBirth
+            membershipStatus, associationRole, dateOfBirth, bio
         } = req.body;
 
         user.username = username || user.username;
@@ -449,6 +451,8 @@ exports.updateUserById = async (req, res, next) => {
         user.membershipStatus = membershipStatus || user.membershipStatus;
         user.associationRole = associationRole !== undefined ? associationRole : user.associationRole;
         user.dateOfBirth = dateOfBirth !== undefined ? dateOfBirth : user.dateOfBirth;
+        if (bio !== undefined) user.bio = bio;
+        if (req.file) user.profileImage = req.file.path;
 
         user.assignedYear = undefined;
         user.assignedSection = undefined;
