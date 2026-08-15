@@ -525,7 +525,7 @@ const Dashboard = () => {
                 data.event,
                 data.config,
                 data.registrationId,
-                `Certificate_${data.registrationId}.pdf`
+                `${data.event.title.replace(/\s+/g, '_')}_Certificate.pdf`
             );
             toast.success('Certificate downloaded!');
         } catch (error) {
