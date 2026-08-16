@@ -18,6 +18,22 @@ import {
     PieChart, Pie, Cell, Legend
 } from 'recharts';
 
+// ─── Identity Field Detection (excluded from analytics) ────────────────────
+const IDENTITY_FIELD_PATTERNS = [
+    'name', 'full name', 'username', 'participant name', 'your name', 'student name',
+    'email', 'email address', 'email id', 'mail',
+    'phone', 'mobile', 'phone number', 'mobile number', 'contact number',
+    'reg no', 'registration no', 'registration number', 'roll no', 'roll number', 'student id', 'reg id',
+    'gender', 'sex',
+    'year', 'department', 'class', 'branch',
+    'dob', 'date of birth', 'birth date'
+];
+
+const isIdentityField = (label) => {
+    const l = label.toLowerCase().trim();
+    return IDENTITY_FIELD_PATTERNS.some(pattern => l === pattern || l.includes(pattern));
+};
+
 // ─── Sentiment Analysis ──────────────────────────────────────────────────────
 const POSITIVE_WORDS = new Set([
     'excellent', 'amazing', 'great', 'good', 'awesome', 'fantastic', 'wonderful',
@@ -137,7 +153,9 @@ const FeedbackManagement = () => {
     const buildSummary = () => {
         if (!selectedEvent || feedbackData.length === 0) return null;
         const summary = {};
-        selectedEvent.feedbackForm.forEach(field => {
+        selectedEvent.feedbackForm
+            .filter(field => !isIdentityField(field.label))
+            .forEach(field => {
             const answers = feedbackData
                 .map(fb => {
                     const val = fb.responses?.[field.label];
@@ -1124,10 +1142,10 @@ const FeedbackManagement = () => {
 
                             {/* Individual Responses */}
                             <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-gray-900">
+                                <div className="flex items-center gap-2 text-gray-900 dark:text-white">
                                     <FileText className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                                    <h3 className="text-xl font-black">Individual Responses</h3>
-                                    <span className="ml-auto text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full font-bold">{feedbackData.length} total</span>
+                                    <h3 className="text-xl font-black text-gray-900 dark:text-white">Individual Responses</h3>
+                                    <span className="ml-auto text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-bold">{feedbackData.length} total</span>
                                 </div>
                                 {feedbackData.length === 0 ? (
                                     <div className="bg-white dark:bg-[#20242B] p-12 rounded-2xl border-2 border-dashed text-center dark:text-white">
@@ -1146,10 +1164,10 @@ const FeedbackManagement = () => {
                                                 key={fb._id}
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                className="bg-white dark:bg-[#20242B] rounded-2xl border border-gray-100 shadow-sm overflow-hidden dark:text-white"
+                                                className="bg-white dark:bg-[#20242B] rounded-2xl border border-gray-100 dark:border-gray-700/50 shadow-sm overflow-hidden dark:text-white"
                                             >
                                                 <button
-                                                    className="w-full p-5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                                                    className="w-full p-5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                                                     onClick={() => toggleExpand(fb._id)}
                                                 >
                                                     <div className="flex items-center gap-4">
@@ -1157,8 +1175,8 @@ const FeedbackManagement = () => {
                                                             {fb.user?.username?.[0]?.toUpperCase()}
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-gray-900">{fb.user?.username}</p>
-                                                            <p className="text-xs text-gray-400">{fb.user?.registrationNumber || fb.user?.email}</p>
+                                                            <p className="font-bold text-gray-900 dark:text-white">{fb.user?.username}</p>
+                                                            <p className="text-xs text-gray-400 dark:text-gray-400">{fb.user?.registrationNumber || fb.user?.email}</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
@@ -1178,17 +1196,19 @@ const FeedbackManagement = () => {
                                                             exit={{ height: 0, opacity: 0 }}
                                                             className="overflow-hidden"
                                                         >
-                                                            <div className="px-5 pb-5 space-y-3 border-t border-gray-100 pt-4">
-                                                                {selectedEvent.feedbackForm.map((field) => {
+                                                            <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
+                                                                {selectedEvent.feedbackForm
+                                                                    .filter(field => !isIdentityField(field.label))
+                                                                    .map((field) => {
                                                                     const answer = fb.responses?.[field.label];
                                                                     const isText = !['dropdown', 'radio', 'checkbox', 'number'].includes(field.type);
                                                                     const sent = isText ? analyzeSentiment(String(answer || '')) : null;
                                                                     return (
                                                                         <div key={field.label} className="flex gap-4 items-start">
-                                                                            <span className="text-xs font-bold text-gray-500 w-40 shrink-0 pt-1.5">{field.label}</span>
+                                                                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 w-40 shrink-0 pt-1.5">{field.label}</span>
                                                                             <div className="flex-1 flex items-start gap-2">
-                                                                                <span className="text-sm text-gray-900 bg-gray-50 px-3 py-1.5 rounded-lg flex-1">
-                                                                                    {Array.isArray(answer) ? answer.join(', ') : (answer ?? <span className="text-gray-300 italic">—</span>)}
+                                                                                <span className="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-black/30 px-3 py-1.5 rounded-lg flex-1">
+                                                                                    {Array.isArray(answer) ? answer.join(', ') : (answer ?? <span className="text-gray-300 dark:text-gray-600 italic">—</span>)}
                                                                                 </span>
                                                                                 {sent && answer && (
                                                                                     <span className={getSentimentBadge(sent)}>
