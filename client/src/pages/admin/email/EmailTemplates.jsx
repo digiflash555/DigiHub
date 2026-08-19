@@ -17,14 +17,17 @@ const quillModules = {
 };
 
 const TRIGGER_LABELS = {
-    USER_REGISTRATION:        { label: 'User Registration',            color: 'bg-emerald-100 text-emerald-700' },
-    EVENT_CREATION:           { label: 'New Event Creation',           color: 'bg-indigo-100 text-indigo-700' },
-    EVENT_REGISTRATION:       { label: 'Event Registration',           color: 'bg-blue-100 text-blue-700' },
-    REGISTRATION_CANCELLATION:{ label: 'Registration Cancellation',    color: 'bg-red-100 text-red-700' },
-    EVENT_CANCELLATION:       { label: 'Event Cancellation',           color: 'bg-orange-100 text-orange-700' },
-    VOLUNTEER_ASSIGNMENT:     { label: 'Volunteer Assignment',         color: 'bg-violet-100 text-violet-700' },
-    CERTIFICATE_AVAILABLE:    { label: 'Certificate Available',        color: 'bg-amber-100 text-amber-700' },
-    FEEDBACK_REQUEST:         { label: 'Feedback Request',             color: 'bg-pink-100 text-pink-700' },
+    USER_REGISTRATION:        { label: 'User Registration',                      color: 'bg-emerald-100 text-emerald-700' },
+    EVENT_CREATION:           { label: 'New Event Creation',                     color: 'bg-indigo-100 text-indigo-700' },
+    EVENT_REGISTRATION:       { label: 'Event Registration',                     color: 'bg-blue-100 text-blue-700' },
+    REGISTRATION_CANCELLATION:{ label: 'Registration Cancellation',              color: 'bg-red-100 text-red-700' },
+    EVENT_CANCELLATION:       { label: 'Event Cancellation',                     color: 'bg-orange-100 text-orange-700' },
+    VOLUNTEER_ASSIGNMENT:     { label: 'Volunteer Assignment',                   color: 'bg-violet-100 text-violet-700' },
+    CERTIFICATE_AVAILABLE:    { label: 'Certificate Available',                  color: 'bg-amber-100 text-amber-700' },
+    FEEDBACK_REQUEST:         { label: 'Feedback Request',                       color: 'bg-pink-100 text-pink-700' },
+    EVENT_REMINDER:           { label: '⏰ Event Reminder (1 Hour Before)',       color: 'bg-purple-100 text-purple-700' },
+    SUPPORT_NEW_TICKET:       { label: '📬 User Care — New Ticket (to Members)', color: 'bg-teal-100 text-teal-700' },
+    SUPPORT_STATUS_UPDATE:    { label: '🔔 User Care — Status Update (to User)', color: 'bg-cyan-100 text-cyan-700' },
 };
 
 const TemplateCard = ({ tmpl, onSave, eventId }) => {
