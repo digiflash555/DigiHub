@@ -17,6 +17,7 @@ const ManageVolunteers = () => {
     const [applications, setApplications] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('All');
+    const [filterEvent, setFilterEvent] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [updatingId, setUpdatingId] = useState('');
 
@@ -49,14 +50,17 @@ const ManageVolunteers = () => {
         }
     };
 
+    const uniqueEvents = [...new Set(applications.map(app => app.event?.title).filter(Boolean))];
+
     const filtered = applications.filter(app => {
         const matchStatus = filterStatus === 'All' || app.status === filterStatus;
+        const matchEvent = filterEvent === 'All' || app.event?.title === filterEvent;
         const q = searchQuery.toLowerCase();
         const matchSearch = !q
             || app.applicant?.username?.toLowerCase().includes(q)
             || app.event?.title?.toLowerCase().includes(q)
             || app.applicant?.registrationNumber?.toLowerCase().includes(q);
-        return matchStatus && matchSearch;
+        return matchStatus && matchEvent && matchSearch;
     });
 
     const stats = {
@@ -98,8 +102,8 @@ const ManageVolunteers = () => {
             </div>
 
             {/* Filters */}
-            <div className="bg-white dark:bg-[#20242B] rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-center dark:text-white">
-                <div className="relative flex-1 min-w-[200px]">
+            <div className="bg-white dark:bg-[#20242B] rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center dark:text-white">
+                <div className="relative flex-1 min-w-[200px] w-full">
                     <Search className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
                     <input
                         type="text"
@@ -109,16 +113,28 @@ const ManageVolunteers = () => {
                         onChange={e => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
-                    {['All', 'Approved'].map(s => (
-                        <button
-                            key={s}
-                            onClick={() => setFilterStatus(s)}
-                            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${filterStatus === s ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-500 dark:text-slate-400 hover:bg-slate-100'}`}
-                        >
-                            {s}
-                        </button>
-                    ))}
+                <div className="flex flex-wrap gap-4 w-full md:w-auto items-center">
+                    <select 
+                        value={filterEvent}
+                        onChange={(e) => setFilterEvent(e.target.value)}
+                        className="px-5 py-2.5 rounded-2xl border-none bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-[250px] truncate"
+                    >
+                        <option value="All">All Events</option>
+                        {uniqueEvents.map(evt => (
+                            <option key={evt} value={evt}>{evt}</option>
+                        ))}
+                    </select>
+                    <div className="flex gap-2">
+                        {['All', 'Approved'].map(s => (
+                            <button
+                                key={s}
+                                onClick={() => setFilterStatus(s)}
+                                className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${filterStatus === s ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-500 dark:text-slate-400 hover:bg-slate-100'}`}
+                            >
+                                {s}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
