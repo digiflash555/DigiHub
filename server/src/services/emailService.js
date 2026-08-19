@@ -1,32 +1,65 @@
-const nodemailer = require('nodemailer');
+const https = require('https');
 const EmailLog = require('../models/EmailLog');
 const EmailTemplate = require('../models/EmailTemplate');
 
 class EmailService {
     /**
-     * Build a Nodemailer transporter from environment variables.
-     * No DB lookup needed — config lives in .env (Brevo SMTP).
+     * Send email via Brevo's Transactional Email HTTP API (port 443).
+     * Works on Render (which blocks SMTP port 587).
      */
-    getTransporter() {
-        const host     = process.env.SMTP_HOST;
-        const port     = parseInt(process.env.SMTP_PORT) || 587;
-        const user     = process.env.SMTP_USERNAME;
-        const pass     = process.env.SMTP_PASSWORD;
-        const enc      = (process.env.SMTP_ENCRYPTION || 'TLS').toUpperCase();
+    async _sendViaBrevoAPI({ to, cc, bcc, subject, htmlBody }) {
+        const apiKey = process.env.BREVO_API_KEY || process.env.SMTP_PASSWORD;
+        const senderEmail = process.env.SMTP_SENDER_EMAIL;
+        const senderName = process.env.SMTP_SENDER_NAME || 'DigiHub';
 
-        if (!host || !user || !pass) {
-            throw new Error('SMTP credentials are not configured in .env (SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD).');
-        }
+        if (!apiKey) throw new Error('BREVO_API_KEY is not configured in .env.');
+        if (!senderEmail) throw new Error('SMTP_SENDER_EMAIL is not configured in .env.');
 
-        const transporter = nodemailer.createTransport({
-            host,
-            port,
-            secure: enc === 'SSL', // true only for port 465 / SSL
-            auth: { user, pass },
+        // Helper to normalise address inputs into Brevo's [{email, name}] format
+        const toAddressArray = (val) => {
+            if (!val) return [];
+            const emails = Array.isArray(val) ? val : val.split(',').map(e => e.trim());
+            return emails.filter(Boolean).map(email => ({ email }));
+        };
+
+        const ccArr  = toAddressArray(cc);
+        const bccArr = toAddressArray(bcc);
+
+        const payload = JSON.stringify({
+            sender: { name: senderName, email: senderEmail },
+            to:     toAddressArray(to).length > 0 ? toAddressArray(to) : [{ email: senderEmail }], // Brevo requires at least one "to"
+            ...(ccArr.length  > 0 && { cc:  ccArr }),
+            ...(bccArr.length > 0 && { bcc: bccArr }),
+            subject,
+            htmlContent: htmlBody,
         });
 
-        const senderInfo = `"${process.env.SMTP_SENDER_NAME || 'Event Management System'}" <${process.env.SMTP_SENDER_EMAIL || user}>`;
-        return { transporter, senderInfo };
+        return new Promise((resolve, reject) => {
+            const req = https.request({
+                hostname: 'api.brevo.com',
+                path:     '/v3/smtp/email',
+                method:   'POST',
+                headers: {
+                    'Content-Type':  'application/json',
+                    'api-key':       apiKey,
+                    'Content-Length': Buffer.byteLength(payload),
+                },
+            }, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve(JSON.parse(data));
+                    } else {
+                        reject(new Error(`Brevo API error ${res.statusCode}: ${data}`));
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.setTimeout(15000, () => { req.destroy(); reject(new Error('Brevo API request timed out')); });
+            req.write(payload);
+            req.end();
+        });
     }
 
     /** Replace {{key}} placeholders in a string with values from an object */
@@ -52,35 +85,22 @@ class EmailService {
      * `to`, `cc`, `bcc` can each be a string or an array of strings.
      */
     async sendEmail({ to, cc, bcc, subject, body, attachments, type, templateId, eventId, userId, recipientGroups = [] }) {
-        const { transporter, senderInfo } = this.getTransporter();
-
-        const normalise = (val) =>
-            Array.isArray(val) ? val.join(', ') : (val || undefined);
-
-        const mailOptions = {
-            from:        senderInfo,
-            to:          normalise(to),
-            cc:          normalise(cc),
-            bcc:         normalise(bcc),
-            subject,
-            html:        body,
-            attachments,
-        };
+        const senderInfo = `"${process.env.SMTP_SENDER_NAME || 'DigiHub'}" <${process.env.SMTP_SENDER_EMAIL}>`;
 
         const countEmails = (val) => {
             if (!val) return 0;
-            if (Array.isArray(val)) return val.length;
+            if (Array.isArray(val)) return val.filter(Boolean).length;
             return val.split(',').filter(Boolean).length;
         };
         const recipientCount = countEmails(to) + countEmails(cc) + countEmails(bcc);
 
         try {
-            const info = await transporter.sendMail(mailOptions);
+            await this._sendViaBrevoAPI({ to, cc, bcc, subject, htmlBody: body });
 
             await this.logEmail({
                 sender:         senderInfo,
                 recipientCount,
-                recipients:     (Array.isArray(to) ? to : [to]).slice(0, 50),
+                recipients:     (Array.isArray(to) ? to : to ? [to] : []).slice(0, 50),
                 recipientGroups,
                 cc:             (Array.isArray(cc)  ? cc  : cc  ? [cc]  : []).slice(0, 50),
                 bcc:            (Array.isArray(bcc) ? bcc : bcc ? [bcc] : []).slice(0, 50),
@@ -93,12 +113,12 @@ class EmailService {
                 userId,
             });
 
-            return { success: true, messageId: info.messageId };
+            return { success: true };
         } catch (error) {
             await this.logEmail({
                 sender:         senderInfo,
                 recipientCount,
-                recipients:     (Array.isArray(to) ? to : [to]).slice(0, 50),
+                recipients:     (Array.isArray(to) ? to : to ? [to] : []).slice(0, 50),
                 recipientGroups,
                 cc:             (Array.isArray(cc)  ? cc  : cc  ? [cc]  : []).slice(0, 50),
                 bcc:            (Array.isArray(bcc) ? bcc : bcc ? [bcc] : []).slice(0, 50),
@@ -122,12 +142,12 @@ class EmailService {
     async triggerAutomaticEmail(triggerName, variables = {}, toEmail = null, eventId = null, userId = null) {
         try {
             let template;
-            
+
             // Try to find an event-specific override first
             if (eventId) {
                 template = await EmailTemplate.findOne({ trigger: triggerName, eventId, enabled: true });
             }
-            
+
             // Fallback to global template
             if (!template) {
                 template = await EmailTemplate.findOne({ trigger: triggerName, eventId: null, enabled: true });
@@ -164,7 +184,7 @@ class EmailService {
      */
     async processBulkEmail(recipients, subject, body, attachments, recipientGroups) {
         const BATCH_SIZE = 50;
-        const DELAY_MS   = 1000;   // 1 s between batches — respects Brevo rate limits
+        const DELAY_MS   = 1000; // 1 s between batches — respects Brevo rate limits
 
         let sentCount   = 0;
         let failedCount = 0;
@@ -173,7 +193,7 @@ class EmailService {
             const batch = recipients.slice(i, i + BATCH_SIZE);
             try {
                 await this.sendEmail({
-                    to:             '',
+                    to:             '',   // BCC-only: Brevo API uses sender as "to" internally
                     bcc:            batch,
                     subject,
                     body,
