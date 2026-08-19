@@ -324,3 +324,40 @@ body {
   color: white !important;
   border-color: #2D3340 !important;
 }
+
+/* =============================================
+   BIRTHDAY THEME (Full Page Override)
+   ============================================= */
+.birthday-theme {
+  --bg-page: #fdf4ff !important; /* fuchsia-50 */
+}
+
+.dark .birthday-theme {
+  --bg-page: #2e1065 !important; /* violet-950 */
+}
+
+.birthday-theme .bg-white,
+.birthday-theme .bg-slate-50 {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(16px);
+  border-color: #fbcfe8 !important; /* pink-200 */
+}
+
+.dark .birthday-theme .bg-white,
+.dark .birthday-theme .dark\:bg-\[\#20242B\],
+.dark .birthday-theme .dark\:bg-\[\#1a1d24\] {
+  background-color: rgba(76, 29, 149, 0.4) !important; /* violet-900 with opacity */
+  backdrop-filter: blur(16px);
+  border-color: rgba(139, 92, 246, 0.5) !important; /* violet-500/50 */
+}
+
+.birthday-theme h2,
+.birthday-theme h3 {
+  color: #831843 !important; /* pink-900 */
+}
+
+.dark .birthday-theme h2,
+.dark .birthday-theme h3,
+.dark .birthday-theme .dark\:text-white {
+  color: #fbcfe8 !important; /* pink-200 */
+}
