@@ -18,6 +18,7 @@ const quillModules = {
 
 const TRIGGER_LABELS = {
     USER_REGISTRATION:        { label: 'User Registration',            color: 'bg-emerald-100 text-emerald-700' },
+    EVENT_CREATION:           { label: 'New Event Creation',           color: 'bg-indigo-100 text-indigo-700' },
     EVENT_REGISTRATION:       { label: 'Event Registration',           color: 'bg-blue-100 text-blue-700' },
     REGISTRATION_CANCELLATION:{ label: 'Registration Cancellation',    color: 'bg-red-100 text-red-700' },
     EVENT_CANCELLATION:       { label: 'Event Cancellation',           color: 'bg-orange-100 text-orange-700' },
