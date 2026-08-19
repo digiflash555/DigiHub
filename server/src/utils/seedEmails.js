@@ -64,6 +64,70 @@ const DEFAULT_TEMPLATES = [
         body: '<p>Dear {{participant_name}},</p><p>Thank you for attending <strong>{{event_name}}</strong>.</p><p>Please share your thoughts by filling out the feedback form: <a href="{{feedback_link}}">Feedback Form</a></p><p>Regards,<br/>Admin Team</p>',
         recipientType: 'Participant',
         availableVariables: ['participant_name', 'event_name', 'feedback_link']
+    },
+    {
+        name: 'Event Reminder (1 Hour Before)',
+        trigger: 'EVENT_REMINDER',
+        subject: 'Reminder: {{event_title}} starts in 1 hour!',
+        body: `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f8fafc;padding:24px;border-radius:16px;">
+  <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;border-radius:12px;text-align:center;margin-bottom:24px;">
+    <h1 style="color:#fff;margin:0;font-size:26px;font-weight:900;">⏰ Event Reminder</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:8px 0 0 0;font-size:14px;">{{event_title}} starts in less than 1 hour!</p>
+  </div>
+  <div style="background:#fff;border-radius:12px;padding:28px;border:1px solid #e2e8f0;margin-bottom:16px;">
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 12px 0;">Hi there,</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 12px 0;">This is a quick reminder that <strong>{{event_title}}</strong> is starting very soon. Don't miss it!</p>
+    <div style="background:#f1f5f9;border-radius:10px;padding:16px;margin:16px 0;">
+      <p style="margin:4px 0;color:#334155;font-size:14px;"><strong>📅 Time:</strong> {{event_time}}</p>
+      <p style="margin:4px 0;color:#334155;font-size:14px;"><strong>📍 Venue:</strong> {{event_venue}}</p>
+    </div>
+    <p style="color:#475569;font-size:14px;line-height:1.7;">Please make sure you arrive on time and have your <strong>QR Event Pass</strong> ready from your dashboard.</p>
+  </div>
+  <p style="text-align:center;color:#94a3b8;font-size:12px;">DigiHub Events Platform — This is an automated reminder.</p>
+</div>`,
+        recipientType: 'Participant',
+        availableVariables: ['event_title', 'event_time', 'event_venue']
+    },
+    {
+        name: 'User Care — New Ticket Alert (to Association Members)',
+        trigger: 'SUPPORT_NEW_TICKET',
+        subject: '[User Care] New Ticket: {{ticket_subject}}',
+        body: `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f8fafc;padding:24px;border-radius:16px;">
+  <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;border-radius:12px;text-align:center;margin-bottom:24px;">
+    <h1 style="color:#fff;margin:0;font-size:26px;font-weight:900;">📬 New User Care Ticket</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:8px 0 0 0;font-size:14px;">A user has submitted a new complaint or query.</p>
+  </div>
+  <div style="background:#fff;border-radius:12px;padding:28px;border:1px solid #e2e8f0;margin-bottom:16px;">
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 8px 0;"><strong>From:</strong> {{user_name}} ({{user_email}})</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 8px 0;"><strong>Category:</strong> {{ticket_category}}</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 8px 0;"><strong>Subject:</strong> {{ticket_subject}}</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 8px 0;"><strong>Message:</strong> {{ticket_message}}</p>
+    <p style="color:#475569;font-size:14px;margin-top:16px;">Please log in to the <strong>Admin Panel → User Care</strong> section to review and respond.</p>
+  </div>
+  <p style="text-align:center;color:#94a3b8;font-size:12px;">DigiHub Events Platform — This is an automated message.</p>
+</div>`,
+        recipientType: 'Association Member',
+        availableVariables: ['user_name', 'user_email', 'ticket_category', 'ticket_subject', 'ticket_message']
+    },
+    {
+        name: 'User Care — Status Update (to User)',
+        trigger: 'SUPPORT_STATUS_UPDATE',
+        subject: '[DigiHub User Care] Ticket Update: {{ticket_status}} — {{ticket_subject}}',
+        body: `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f8fafc;padding:24px;border-radius:16px;">
+  <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;border-radius:12px;text-align:center;margin-bottom:24px;">
+    <h1 style="color:#fff;margin:0;font-size:26px;font-weight:900;">🔔 Ticket Status Updated</h1>
+    <p style="color:rgba(255,255,255,0.8);margin:8px 0 0 0;font-size:14px;">Ticket: "{{ticket_subject}}"</p>
+  </div>
+  <div style="background:#fff;border-radius:12px;padding:28px;border:1px solid #e2e8f0;margin-bottom:16px;">
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 12px 0;">Hi <strong>{{user_name}}</strong>,</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 12px 0;">Your ticket status has been updated to <strong>{{ticket_status}}</strong>.</p>
+    <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 12px 0;"><strong>Admin Response:</strong> {{admin_remarks}}</p>
+    <p style="color:#475569;font-size:14px;line-height:1.7;">If you have further questions, please visit the <strong>User Care</strong> section of DigiHub.</p>
+  </div>
+  <p style="text-align:center;color:#94a3b8;font-size:12px;">DigiHub Events Platform — This is an automated message.</p>
+</div>`,
+        recipientType: 'User',
+        availableVariables: ['user_name', 'ticket_subject', 'ticket_status', 'admin_remarks']
     }
 ];
 
