@@ -760,30 +760,137 @@ const Dashboard = () => {
         return <FacultyDashboard user={user} />;
     }
 
+    // Birthday confetti particles
+    const confettiColors = ['#f472b6', '#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#c084fc'];
+    const confettiPieces = isBirthday ? Array.from({ length: 30 }, (_, i) => ({
+        id: i,
+        color: confettiColors[i % confettiColors.length],
+        left: `${Math.random() * 100}%`,
+        size: Math.random() * 10 + 6,
+        delay: Math.random() * 5,
+        duration: Math.random() * 8 + 6,
+        shape: i % 3 === 0 ? 'circle' : i % 3 === 1 ? 'square' : 'star'
+    })) : [];
+
     return (
-        <div className="space-y-12 pb-40">
-            {/* Birthday Banner */}
-            <AnimatePresence>
-                {isBirthday && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-8 rounded-3xl shadow-2xl text-white relative overflow-hidden"
-                    >
-                        <div className="absolute top-0 right-0 p-8 opacity-20"><Cake className="w-32 h-32" /></div>
-                        <div className="relative z-10 flex items-center gap-6">
-                            <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm dark:text-white"><Cake className="w-10 h-10" /></div>
-                            <div>
-                                <h2 className="text-3xl font-black mb-2">Happy Birthday, {user.username}! 🎉</h2>
-                                <p className="text-white/90 font-medium">Wishing you a fantastic day filled with joy and celebration!</p>
+        <div className={`space-y-12 pb-40 relative ${isBirthday ? 'birthday-theme' : ''}`}>
+            {/* Full-page birthday confetti rain */}
+            {isBirthday && (
+                <div className="fixed inset-0 pointer-events-none overflow-hidden z-10" aria-hidden="true">
+                    {confettiPieces.map(p => (
+                        <motion.div
+                            key={p.id}
+                            className="absolute top-0"
+                            style={{ left: p.left }}
+                            initial={{ y: -40, opacity: 1, rotate: 0 }}
+                            animate={{ y: '110vh', opacity: [1, 1, 0], rotate: 720 }}
+                            transition={{
+                                duration: p.duration,
+                                delay: p.delay,
+                                repeat: Infinity,
+                                ease: 'linear'
+                            }}
+                        >
+                            {p.shape === 'circle' && (
+                                <div style={{ width: p.size, height: p.size, backgroundColor: p.color, borderRadius: '50%' }} />
+                            )}
+                            {p.shape === 'square' && (
+                                <div style={{ width: p.size, height: p.size, backgroundColor: p.color, borderRadius: '2px' }} />
+                            )}
+                            {p.shape === 'star' && (
+                                <div style={{ color: p.color, fontSize: p.size + 4 }}>✦</div>
+                            )}
+                        </motion.div>
+                    ))}
+                </div>
+            )}
+            {/* === BIRTHDAY HERO === */}
+            {isBirthday && (
+                <motion.div
+                    initial={{ opacity: 0, y: -30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                    className="relative overflow-hidden rounded-[3rem] isolate mb-12"
+                    style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #db2777 50%, #f59e0b 100%)' }}
+                >
+                    {/* Animated blobs */}
+                    <motion.div animate={{ scale: [1,1.3,1], x: [0,30,0], y:[0,-20,0] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-pink-400 rounded-full mix-blend-overlay filter blur-3xl opacity-40 pointer-events-none" />
+                    <motion.div animate={{ scale: [1,1.2,1], x: [0,-20,0], y:[0,30,0] }} transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+                        className="absolute -bottom-32 -right-32 w-[500px] h-[500px] bg-yellow-300 rounded-full mix-blend-overlay filter blur-3xl opacity-30 pointer-events-none" />
+                    <motion.div animate={{ scale: [1,1.15,1] }} transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600 rounded-full mix-blend-overlay filter blur-3xl opacity-20 pointer-events-none" />
+
+                    {/* Floating emoji */}
+                    {['🎂','🎉','🥳','🎈','🎊','✨','🎁','💜'].map((emoji, i) => (
+                        <motion.div key={i}
+                            className="absolute text-4xl pointer-events-none select-none"
+                            style={{ left: `${10 + i * 11}%`, top: `${Math.random() * 60 + 5}%` }}
+                            animate={{ y: [0, -20, 0], rotate: [0, 10, -10, 0], scale: [1, 1.2, 1] }}
+                            transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: 'easeInOut', delay: i * 0.4 }}
+                        >{emoji}</motion.div>
+                    ))}
+
+                    <div className="relative z-10 p-10 md:p-16 text-white">
+                        <div className="flex flex-col lg:flex-row items-center gap-10">
+                            {/* Giant animated avatar */}
+                            <motion.div
+                                animate={{ rotate: [0, -8, 8, -8, 8, 0], scale: [1, 1.05, 1] }}
+                                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+                                className="relative shrink-0"
+                            >
+                                <div className="w-40 h-40 md:w-48 md:h-48 rounded-[2.5rem] bg-white/20 backdrop-blur-xl border-4 border-white/40 flex items-center justify-center shadow-2xl">
+                                    <span className="text-7xl md:text-8xl font-black text-white drop-shadow-lg">
+                                        {user?.username?.[0]?.toUpperCase() || '🎂'}
+                                    </span>
+                                </div>
+                                {/* Glow ring */}
+                                <motion.div
+                                    animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute inset-0 rounded-[2.5rem] border-4 border-yellow-300 pointer-events-none"
+                                />
+                                <div className="absolute -top-4 -right-4 text-4xl animate-bounce">🎂</div>
+                                <div className="absolute -bottom-4 -left-4 text-3xl animate-pulse">🎉</div>
+                            </motion.div>
+
+                            {/* Text */}
+                            <div className="text-center lg:text-left flex-1">
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-sm font-black uppercase tracking-widest mb-6"
+                                >
+                                    <Sparkles className="w-4 h-4 text-yellow-300" /> Today is Your Special Day!
+                                </motion.div>
+                                <motion.h1
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.4 }}
+                                    className="text-5xl md:text-7xl font-black tracking-tighter leading-none mb-4"
+                                    style={{ textShadow: '0 4px 30px rgba(0,0,0,0.3)' }}
+                                >
+                                    Happy Birthday,<br/>
+                                    <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(to right, #fde68a, #fca5a5, #c4b5fd)' }}>
+                                        {user.username}! 🎊
+                                    </span>
+                                </motion.h1>
+                                <motion.p
+                                    initial={{ opacity: 0, y: 15 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.5 }}
+                                    className="text-xl text-white/80 font-medium max-w-xl leading-relaxed mb-8"
+                                >
+                                    Wishing you a day full of joy, laughter, and everything you deserve. Here's to another amazing year ahead! 🌟
+                                </motion.p>
                             </div>
                         </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    </div>
+                </motion.div>
+            )}
 
-            {/* Header / Intro */}
+            {/* === NORMAL HEADER (ALWAYS SHOWN) === */}
             <div className="bg-white dark:bg-[#20242B] p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-wrap justify-between items-center gap-8 dark:text-white">
                 <div className="flex items-center gap-6">
                     <div className="w-24 h-24 rounded-3xl bg-primary-50 dark:bg-primary-500/10 flex items-center justify-center text-primary-600 dark:text-primary-400 text-4xl font-black border border-primary-100 dark:border-primary-500/20 ring-8 ring-primary-50/50">
