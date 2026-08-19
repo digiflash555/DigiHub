@@ -4,7 +4,7 @@ const registrationSchema = new mongoose.Schema({
     event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
     participant: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     registrationId: { type: String, required: true },
-    formData: { type: Map, of: mongoose.Schema.Types.Mixed },
+    formData: { type: mongoose.Schema.Types.Mixed },
     qrCode: { type: String }, // Base64 or URL
     attendanceStatus: { type: Boolean, default: false },
     attendanceTime: { type: Date },
