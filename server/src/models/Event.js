@@ -69,6 +69,7 @@ const eventSchema = new mongoose.Schema({
     isPublished: { type: Boolean, default: false },
     resultsPublished: { type: Boolean, default: false },
     winnerPhotoUploadLocked: { type: Boolean, default: false },
+    reminderSent: { type: Boolean, default: false },
     certificateConfig: {
         template: String,
         fields: [{
