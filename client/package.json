@@ -1,23 +1,19 @@
 {
-  "name": "event-management-system",
+  "name": "digihub-client",
   "version": "1.0.0",
-  "description": "Smart Event Management and Attendance System",
+  "private": true,
   "scripts": {
-    "start": "node server/src/server.js",
-    "server": "nodemon server/src/server.js",
-    "client": "npm run dev --prefix client",
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "seed": "node server/src/scripts/seedSampleData.js",
-    "seed:admin": "node server/src/scripts/seedAdmin.js"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2",
-    "nodemon": "^3.1.14"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "file-saver": "^2.0.5",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "vite": "^latest"
   }
 }
