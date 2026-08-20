@@ -481,4 +481,77 @@ router.post('/bulk-send/:eventId', protect, authorize('Admin'), async (req, res,
     }
 });
 
+// @desc    Get certificate render data in bulk
+// @route   GET /api/certificates/bulk-data/:eventId
+// @access  Private/Admin
+router.get('/bulk-data/:eventId', protect, authorize('Admin'), async (req, res, next) => {
+    try {
+        const event = await Event.findById(req.params.eventId);
+        if (!event) {
+            res.status(404);
+            throw new Error('Event not found');
+        }
+        if (!event.certificateConfig || !event.certificateConfig.template) {
+            res.status(400);
+            throw new Error('Certificate template not configured.');
+        }
+
+        const target = req.query.target || 'both'; // 'participants', 'volunteers', 'both'
+        const certificatesData = [];
+
+        if (target === 'both' || target === 'participants') {
+            const eligibleRegs = await Registration.find({
+                event: req.params.eventId,
+                attendanceStatus: true
+            }).populate('participant', 'username gender yearAndDept registrationNumber collegeName email');
+
+            for (const reg of eligibleRegs) {
+                if (event.feedbackForm && event.feedbackForm.length > 0 && !reg.feedbackSubmitted) {
+                    continue;
+                }
+                certificatesData.push({
+                    participant: {
+                        username: reg.participant.username,
+                        gender: reg.participant.gender,
+                        yearAndDept: reg.participant.yearAndDept,
+                        registrationNumber: reg.participant.registrationNumber,
+                        collegeName: reg.participant.collegeName,
+                    },
+                    event: { title: event.title, eventDate: event.eventDate },
+                    config: event.toObject().certificateConfig,
+                    registrationId: reg.registrationId,
+                    type: 'participant'
+                });
+            }
+        }
+
+        if (target === 'both' || target === 'volunteers') {
+            const volunteers = await VolunteerApplication.find({
+                event: req.params.eventId,
+                status: 'Approved'
+            }).populate('applicant', 'username gender yearAndDept registrationNumber collegeName email');
+
+            for (const vol of volunteers) {
+                certificatesData.push({
+                    participant: {
+                        username: vol.applicant.username,
+                        gender: vol.applicant.gender,
+                        yearAndDept: vol.applicant.yearAndDept,
+                        registrationNumber: vol.applicant.registrationNumber,
+                        collegeName: vol.applicant.collegeName,
+                    },
+                    event: { title: event.title, eventDate: event.eventDate },
+                    config: event.toObject().certificateConfig,
+                    registrationId: `VOL-${vol._id.toString().slice(-6).toUpperCase()}`,
+                    type: 'volunteer'
+                });
+            }
+        }
+
+        res.json({ success: true, data: certificatesData });
+    } catch (error) {
+        next(error);
+    }
+});
+
 module.exports = router;
