@@ -398,9 +398,9 @@ export const renderCertificateToBlob = async (
     config,
     registrationId = ''
 ) => {
-    // We can use a lower DPR like 3 for images so the ZIP doesn't get excessively large,
-    // but still maintains good quality (2400x1695)
-    const DPR = 3; 
+    // Use DPR 5 for ultra-high quality PNG images (4000x2825px),
+    // ensuring text is perfectly sharp and print-quality.
+    const DPR = 5; 
     const hiResCanvas = document.createElement('canvas');
 
     await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
