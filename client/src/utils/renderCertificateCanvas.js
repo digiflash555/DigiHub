@@ -363,9 +363,9 @@ export const downloadCertificateAsPDF = async (
     filename = 'certificate.pdf'
 ) => {
     // ------------------------------------------------------------------
-    // 1. Render on a 3× offscreen canvas.
+    // 1. Render on a 5× offscreen canvas for extremely high print quality.
     // ------------------------------------------------------------------
-    const DPR = 3; 
+    const DPR = 5; 
     const hiResCanvas = document.createElement('canvas');
 
     await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
@@ -423,7 +423,7 @@ export const renderCertificateToPDFBlob = async (
     config,
     registrationId = ''
 ) => {
-    const DPR = 3; 
+    const DPR = 5; 
     const hiResCanvas = document.createElement('canvas');
 
     await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
