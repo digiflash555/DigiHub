@@ -186,6 +186,7 @@ exports.registerForEvent = async (req, res, next) => {
             const registrationRecords = [];
             registrationRecords.push({
                 event: eventId,
+                eventName: event.title,
                 participant: userId,
                 registrationId,
                 formData,
@@ -196,6 +197,7 @@ exports.registerForEvent = async (req, res, next) => {
             teamMembers.forEach(memberId => {
                 registrationRecords.push({
                     event: eventId,
+                    eventName: event.title,
                     participant: memberId,
                     registrationId,
                     formData: memberFormData[memberId] || formData,
@@ -243,6 +245,7 @@ exports.registerForEvent = async (req, res, next) => {
 
             const registration = await Registration.create({
                 event: eventId,
+                eventName: event.title,
                 participant: userId,
                 registrationId,
                 formData,
