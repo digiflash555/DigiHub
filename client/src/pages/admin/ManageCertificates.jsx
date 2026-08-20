@@ -556,7 +556,8 @@ const ManageCertificates = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isBulkSending, setIsBulkSending] = useState(false);
-    const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+    const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+    const [isDownloadingPNG, setIsDownloadingPNG] = useState(false);
     const [sendTarget, setSendTarget] = useState('both');
     const [activeTab, setActiveTab] = useState('editor');
 
@@ -718,14 +719,15 @@ const ManageCertificates = () => {
 
     const handleBulkDownload = async (format = 'pdf') => {
         if (!selectedEventId) return;
-        setIsBulkDownloading(true);
+        const setLoading = format === 'pdf' ? setIsDownloadingPDF : setIsDownloadingPNG;
+        setLoading(true);
         const toastId = toast.loading('Fetching data...');
         try {
             const res = await axios.get(`/api/certificates/bulk-data/${selectedEventId}?target=${sendTarget}`);
             const certificatesData = res.data.data;
             if (!certificatesData || certificatesData.length === 0) {
                 toast.error('No eligible certificates found to download.', { id: toastId });
-                setIsBulkDownloading(false);
+                setLoading(false);
                 return;
             }
 
@@ -781,7 +783,7 @@ const ManageCertificates = () => {
             console.error('Bulk download error:', err);
             toast.error(err.response?.data?.message || 'Bulk download failed', { id: toastId });
         } finally {
-            setIsBulkDownloading(false);
+            setLoading(false);
         }
     };
 
@@ -854,7 +856,7 @@ const ManageCertificates = () => {
                                 {isBulkSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                                 Bulk Send
                             </button>
-                            <select value={sendTarget} onChange={e => setSendTarget(e.target.value)} disabled={isBulkSending || isBulkDownloading}
+                            <select value={sendTarget} onChange={e => setSendTarget(e.target.value)} disabled={isBulkSending || isDownloadingPDF || isDownloadingPNG}
                                 className="bg-transparent text-emerald-700 dark:text-emerald-300 font-bold text-sm outline-none cursor-pointer px-3 py-3">
                                 <option value="both">Participants + Volunteers</option>
                                 <option value="participants">Participants Only</option>
@@ -862,20 +864,20 @@ const ManageCertificates = () => {
                             </select>
                             <button
                                 onClick={() => handleBulkDownload('pdf')}
-                                disabled={isBulkDownloading || !config.template || !config.fields?.length}
+                                disabled={isDownloadingPDF || isDownloadingPNG || !config.template || !config.fields?.length}
                                 className="px-5 py-3 text-indigo-600 dark:text-indigo-400 font-black hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center gap-2 border-l-2 border-emerald-500 disabled:opacity-50 bg-indigo-50/50 dark:bg-indigo-500/5"
                                 title="Download PDFs as ZIP"
                             >
-                                {isBulkDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                                {isDownloadingPDF ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                                 PDF ZIP
                             </button>
                             <button
                                 onClick={() => handleBulkDownload('png')}
-                                disabled={isBulkDownloading || !config.template || !config.fields?.length}
+                                disabled={isDownloadingPNG || isDownloadingPDF || !config.template || !config.fields?.length}
                                 className="px-5 py-3 text-fuchsia-600 dark:text-fuchsia-400 font-black hover:bg-fuchsia-50 dark:hover:bg-fuchsia-500/10 transition-all flex items-center gap-2 border-l-2 border-emerald-500 disabled:opacity-50 bg-fuchsia-50/50 dark:bg-fuchsia-500/5"
                                 title="Download PNGs as ZIP"
                             >
-                                {isBulkDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                                {isDownloadingPNG ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                                 PNG ZIP
                             </button>
                         </div>
