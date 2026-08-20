@@ -7,12 +7,14 @@ import {
     ChevronLeft, Loader2, Maximize2, Settings2,
     Type, Hash, AlignLeft, AlignCenter, AlignRight, AlignJustify,
     Bold, Italic, Send, Eye, Layers, ChevronDown, ChevronUp,
-    Grip, Sparkles
+    Grip, Sparkles, Download
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import { renderCertificateCanvas, downloadCertificateAsPDF } from '../../utils/renderCertificateCanvas';
+import { renderCertificateCanvas, downloadCertificateAsPDF, renderCertificateToBlob, renderCertificateToPDFBlob } from '../../utils/renderCertificateCanvas';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 /* ─── constants ──────────────────────────────────────────────────────── */
 
@@ -554,6 +556,7 @@ const ManageCertificates = () => {
     const [isSaving, setIsSaving]                 = useState(false);
     const [isPreviewing, setIsPreviewing]         = useState(false);
     const [isBulkSending, setIsBulkSending]       = useState(false);
+    const [isBulkDownloading, setIsBulkDownloading] = useState(false);
     const [sendTarget, setSendTarget]             = useState('both');
     const [activeTab, setActiveTab]               = useState('editor');
 
@@ -713,6 +716,65 @@ const ManageCertificates = () => {
         } finally { setIsBulkSending(false); }
     };
 
+    const handleBulkDownload = async () => {
+        if (!selectedEventId) return;
+        setIsBulkDownloading(true);
+        const toastId = toast.loading('Fetching data...');
+        try {
+            const res = await axios.get(`/api/certificates/bulk-data/${selectedEventId}?target=${sendTarget}`);
+            const certificatesData = res.data.data;
+            if (!certificatesData || certificatesData.length === 0) {
+                toast.error('No eligible certificates found to download.', { id: toastId });
+                setIsBulkDownloading(false);
+                return;
+            }
+
+            toast.loading(`Generating ${certificatesData.length} certificates... This may take a minute.`, { id: toastId });
+            
+            const zip = new JSZip();
+            const folderName = `Certificates_${certificatesData[0].event.title.replace(/\s+/g, '_')}`;
+            const folder = zip.folder(folderName);
+
+            // Generate PDFs in batches to prevent UI freeze
+            const batchSize = 10;
+            for (let i = 0; i < certificatesData.length; i += batchSize) {
+                const batch = certificatesData.slice(i, i + batchSize);
+                const promises = batch.map(async (cert) => {
+                    // Try to use Roll Number, fallback to Registration ID or Name
+                    let fileName = cert.participant.registrationNumber || cert.registrationId || cert.participant.username.replace(/\s+/g, '_');
+                    fileName = `${fileName.replace(/[^a-zA-Z0-9_-]/g, '')}.pdf`;
+                    
+                    try {
+                        const blob = await renderCertificateToPDFBlob(
+                            cert.participant,
+                            cert.event,
+                            cert.config,
+                            cert.registrationId
+                        );
+                        // Add to ZIP
+                        folder.file(fileName, blob);
+                    } catch (err) {
+                        console.error('Failed to render cert for', fileName, err);
+                    }
+                });
+                await Promise.all(promises);
+                toast.loading(`Generated ${Math.min(i + batchSize, certificatesData.length)} of ${certificatesData.length}...`, { id: toastId });
+            }
+
+            toast.loading('Zipping files...', { id: toastId });
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            saveAs(zipBlob, `${folderName}.zip`);
+            
+            toast.success('Downloaded successfully!', { id: toastId });
+        } catch (err) {
+            console.error('Bulk download error:', err);
+            toast.error(err.response?.data?.message || 'Bulk download failed', { id: toastId });
+        } finally {
+            setIsBulkDownloading(false);
+        }
+    };
+
+
     // Live canvas preview
     useEffect(() => {
         if (!canvasRef.current || !templatePreview) return;
@@ -722,15 +784,17 @@ const ManageCertificates = () => {
             { username: 'Santharam S', gender: 'Male', yearAndDept: 'III B.E. CSE', registrationNumber: 'ST12345', collegeName: 'Saranathan College of Engineering' },
             { title: ev?.title || 'Event Name', eventDate: ev?.eventDate || new Date().toISOString() },
             { ...config, template: templatePreview },
-            'REG98765'
+            'REG98765',
+            3
         ).then(() => {
             const canvas = canvasRef.current;
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
+            const DPR = 3;
             (config.fields || []).forEach(field => {
                 ctx.fillStyle = 'rgba(99,102,241,0.75)';
                 ctx.beginPath();
-                ctx.arc(field.x, field.y, 5, 0, Math.PI * 2);
+                ctx.arc(field.x * DPR, field.y * DPR, 5 * DPR, 0, Math.PI * 2);
                 ctx.fill();
             });
         });
@@ -779,12 +843,21 @@ const ManageCertificates = () => {
                                 {isBulkSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                                 Bulk Send
                             </button>
-                            <select value={sendTarget} onChange={e => setSendTarget(e.target.value)} disabled={isBulkSending}
+                            <select value={sendTarget} onChange={e => setSendTarget(e.target.value)} disabled={isBulkSending || isBulkDownloading}
                                 className="bg-transparent text-emerald-700 dark:text-emerald-300 font-bold text-sm outline-none cursor-pointer px-3 py-3">
                                 <option value="both">Participants + Volunteers</option>
                                 <option value="participants">Participants Only</option>
                                 <option value="volunteers">Volunteers Only</option>
                             </select>
+                            <button
+                                onClick={handleBulkDownload}
+                                disabled={isBulkDownloading || !config.template || !config.fields?.length}
+                                className="px-5 py-3 text-indigo-600 dark:text-indigo-400 font-black hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center gap-2 border-l-2 border-emerald-500 disabled:opacity-50 bg-indigo-50/50 dark:bg-indigo-500/5"
+                                title="Download PDFs as ZIP"
+                            >
+                                {isBulkDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                                Download PDFs
+                            </button>
                         </div>
 
                         <button onClick={saveConfig} disabled={isSaving} className="btn-premium flex items-center gap-2 px-6 py-3">
@@ -907,7 +980,7 @@ const ManageCertificates = () => {
                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">800 × 565 px</span>
                                     </div>
                                     {templatePreview ? (
-                                        <canvas ref={canvasRef} width={800} height={565} className="max-w-full h-auto rounded-xl shadow-2xl bg-white" />
+                                        <canvas ref={canvasRef} width={2400} height={1695} className="max-w-full h-auto rounded-xl shadow-2xl bg-white" style={{ width: '100%', maxWidth: '800px' }} />
                                     ) : (
                                         <div className="h-80 flex flex-col items-center justify-center gap-4">
                                             <Upload className="w-12 h-12 text-slate-300" />
@@ -919,8 +992,8 @@ const ManageCertificates = () => {
                             ) : (
                                 <div className="space-y-4">
                                     {templatePreview && (
-                                        <div className="bg-slate-100 dark:bg-[#20242B] rounded-2xl p-3 border border-slate-200 dark:border-slate-700">
-                                            <canvas ref={canvasRef} width={800} height={565} className="max-w-full h-auto rounded-lg shadow-lg bg-white" />
+                                        <div className="bg-slate-100 dark:bg-[#20242B] rounded-2xl p-3 border border-slate-200 dark:border-slate-700 flex justify-center">
+                                            <canvas ref={canvasRef} width={2400} height={1695} className="max-w-full h-auto rounded-lg shadow-lg bg-white" style={{ width: '100%', maxWidth: '800px' }} />
                                         </div>
                                     )}
 
