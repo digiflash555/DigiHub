@@ -19,15 +19,15 @@ import { saveAs } from 'file-saver';
 /* ─── constants ──────────────────────────────────────────────────────── */
 
 const FONT_FAMILIES = [
-    { value: 'Helvetica',       label: 'Helvetica (Arial)' },
-    { value: 'Times',           label: 'Times New Roman' },
-    { value: 'Courier',         label: 'Courier' },
-    { value: 'Georgia',         label: 'Georgia' },
-    { value: 'Verdana',         label: 'Verdana' },
-    { value: 'Trebuchet MS',    label: 'Trebuchet MS' },
-    { value: 'Impact',          label: 'Impact' },
+    { value: 'Helvetica', label: 'Helvetica (Arial)' },
+    { value: 'Times', label: 'Times New Roman' },
+    { value: 'Courier', label: 'Courier' },
+    { value: 'Georgia', label: 'Georgia' },
+    { value: 'Verdana', label: 'Verdana' },
+    { value: 'Trebuchet MS', label: 'Trebuchet MS' },
+    { value: 'Impact', label: 'Impact' },
     { value: 'Brush Script MT', label: 'Brush Script MT (Cursive)' },
-    { value: 'Comic Sans MS',   label: 'Comic Sans' },
+    { value: 'Comic Sans MS', label: 'Comic Sans' },
 ];
 
 const ALL_VARIABLES = [
@@ -48,8 +48,8 @@ const segmentsToHTML = (segs) => {
             .replace(/>/g, '&gt;');
         const s = seg.style || 'normal';
         if (s === 'bolditalic') return `<b><i>${t}</i></b>`;
-        if (s === 'bold')       return `<b>${t}</b>`;
-        if (s === 'italic')     return `<i>${t}</i>`;
+        if (s === 'bold') return `<b>${t}</b>`;
+        if (s === 'italic') return `<i>${t}</i>`;
         return t;
     }).join('');
 };
@@ -67,16 +67,16 @@ const htmlToSegments = (html) => {
                 raw.push({
                     text,
                     style: bold && italic ? 'bolditalic'
-                         : bold   ? 'bold'
-                         : italic ? 'italic'
-                         : 'normal',
+                        : bold ? 'bold'
+                            : italic ? 'italic'
+                                : 'normal',
                 });
             }
         } else if (node.nodeType === 1) {          // ELEMENT_NODE
             const tag = node.tagName.toLowerCase();
             let b = bold, it = italic;
             if (tag === 'b' || tag === 'strong') b = true;
-            if (tag === 'i' || tag === 'em')     it = true;
+            if (tag === 'i' || tag === 'em') it = true;
             // Treat block breaks as a space
             if (tag === 'br' || tag === 'div' || tag === 'p') {
                 raw.push({ text: ' ', style: 'normal' });
@@ -110,9 +110,9 @@ const getInitialRichText = (field) => {
 /* ─── RichTextEditor component ───────────────────────────────────────── */
 
 const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) => {
-    const divRef  = useRef(null);
+    const divRef = useRef(null);
     const mounted = useRef(false);
-    const [selBold,   setSelBold]   = useState(false);
+    const [selBold, setSelBold] = useState(false);
     const [selItalic, setSelItalic] = useState(false);
 
     // Set initial HTML once on mount
@@ -190,9 +190,9 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 {/* Active indicator */}
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 min-w-[60px]">
                     {selBold && selItalic ? 'Bold + Italic'
-                     : selBold   ? 'Bold'
-                     : selItalic ? 'Italic'
-                     : 'Normal'}
+                        : selBold ? 'Bold'
+                            : selItalic ? 'Italic'
+                                : 'Normal'}
                 </span>
 
                 <div className="flex-1" />
@@ -407,9 +407,9 @@ const FieldCard = ({ field, idx, updateField, removeField }) => {
                                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Alignment</label>
                                 <div className="flex gap-1.5 p-1.5 bg-slate-50 dark:bg-[#252b3b] rounded-xl border border-slate-100 dark:border-slate-700">
                                     {[
-                                        { icon: <AlignLeft className="w-4 h-4" />, val: 'left',    title: 'Left' },
+                                        { icon: <AlignLeft className="w-4 h-4" />, val: 'left', title: 'Left' },
                                         { icon: <AlignCenter className="w-4 h-4" />, val: 'center', title: 'Center' },
-                                        { icon: <AlignRight className="w-4 h-4" />, val: 'right',   title: 'Right' },
+                                        { icon: <AlignRight className="w-4 h-4" />, val: 'right', title: 'Right' },
                                         { icon: <AlignJustify className="w-4 h-4" />, val: 'justify', title: 'Justify' },
                                     ].map(({ icon, val, title }) => (
                                         <button key={val} title={title}
@@ -435,7 +435,7 @@ const FieldCard = ({ field, idx, updateField, removeField }) => {
                                                 fontStyle: field.fontStyle === 'bold' ? 'normal' : field.fontStyle === 'italic' ? 'bolditalic' : 'bold'
                                             })}
                                             className={`flex-1 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all
-                                                ${['bold','bolditalic'].includes(field.fontStyle)
+                                                ${['bold', 'bolditalic'].includes(field.fontStyle)
                                                     ? 'bg-indigo-600 text-white'
                                                     : 'bg-slate-100 dark:bg-[#252b3b] text-slate-500 dark:text-slate-300 hover:bg-slate-200'}`}
                                         >
@@ -446,7 +446,7 @@ const FieldCard = ({ field, idx, updateField, removeField }) => {
                                                 fontStyle: field.fontStyle === 'italic' ? 'normal' : field.fontStyle === 'bold' ? 'bolditalic' : 'italic'
                                             })}
                                             className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all
-                                                ${['italic','bolditalic'].includes(field.fontStyle)
+                                                ${['italic', 'bolditalic'].includes(field.fontStyle)
                                                     ? 'bg-indigo-600 text-white'
                                                     : 'bg-slate-100 dark:bg-[#252b3b] text-slate-500 dark:text-slate-300 hover:bg-slate-200'}`}
                                         >
@@ -468,8 +468,8 @@ const FieldCard = ({ field, idx, updateField, removeField }) => {
                                                 <div className="flex items-center justify-between">
                                                     <code className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 rounded-md block w-fit">{varName}</code>
                                                     <label className="flex items-center gap-1.5 cursor-pointer">
-                                                        <input 
-                                                            type="checkbox" 
+                                                        <input
+                                                            type="checkbox"
                                                             className="w-3 h-3 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                                                             checked={field.variableUnderlines?.[varName] || false}
                                                             onChange={e => {
@@ -547,18 +547,18 @@ const FieldCard = ({ field, idx, updateField, removeField }) => {
 
 const ManageCertificates = () => {
     const { confirm } = useConfirm();
-    const [events, setEvents]                     = useState([]);
-    const [selectedEventId, setSelectedEventId]   = useState('');
-    const [config, setConfig]                     = useState({ fields: [] });
-    const [templateFile, setTemplateFile]         = useState(null);
-    const [templatePreview, setTemplatePreview]   = useState(null);
-    const [isLoading, setIsLoading]               = useState(true);
-    const [isSaving, setIsSaving]                 = useState(false);
-    const [isPreviewing, setIsPreviewing]         = useState(false);
-    const [isBulkSending, setIsBulkSending]       = useState(false);
+    const [events, setEvents] = useState([]);
+    const [selectedEventId, setSelectedEventId] = useState('');
+    const [config, setConfig] = useState({ fields: [] });
+    const [templateFile, setTemplateFile] = useState(null);
+    const [templatePreview, setTemplatePreview] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isPreviewing, setIsPreviewing] = useState(false);
+    const [isBulkSending, setIsBulkSending] = useState(false);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
-    const [sendTarget, setSendTarget]             = useState('both');
-    const [activeTab, setActiveTab]               = useState('editor');
+    const [sendTarget, setSendTarget] = useState('both');
+    const [activeTab, setActiveTab] = useState('editor');
 
     const canvasRef = useRef(null);
 
@@ -576,16 +576,16 @@ const ManageCertificates = () => {
     const normalizeFields = (fields) =>
         (fields || []).map(f => ({
             ...f,
-            variableColors:       f.variableColors      || {},
-            variableFontStyles:   f.variableFontStyles  || {},
+            variableColors: f.variableColors || {},
+            variableFontStyles: f.variableFontStyles || {},
             variableFontFamilies: f.variableFontFamilies || {},
-            variableUnderlines:   f.variableUnderlines || {},
-            richText:             f.richText             || null,
+            variableUnderlines: f.variableUnderlines || {},
+            richText: f.richText || null,
         }));
 
     const fetchConfig = async (eventId) => {
         try {
-            const res  = await axios.get(`/api/certificates/config/${eventId}`);
+            const res = await axios.get(`/api/certificates/config/${eventId}`);
             const data = res.data || { fields: [] };
             data.fields = normalizeFields(data.fields);
             setConfig(data);
@@ -649,28 +649,28 @@ const ManageCertificates = () => {
         if (templateFile) formData.append('template', templateFile);
 
         const cleanFields = (config.fields || []).map(f => ({
-            type:                 f.type,
-            text:                 f.richText ? f.richText.map(s => s.text).join('') : (f.text || ''),
-            richText:             f.richText || null,
-            x:                   Number(f.x)       || 0,
-            y:                   Number(f.y)       || 0,
-            fontSize:             Number(f.fontSize) || 20,
-            color:                f.color           || '#000000',
-            fontStyle:            f.fontStyle        || 'normal',
-            fontFamily:           f.fontFamily       || 'Helvetica',
-            alignment:            f.alignment        || 'left',
-            width:                Number(f.width)   || 600,
-            variableColors:       f.variableColors   || {},
-            variableFontStyles:   f.variableFontStyles  || {},
+            type: f.type,
+            text: f.richText ? f.richText.map(s => s.text).join('') : (f.text || ''),
+            richText: f.richText || null,
+            x: Number(f.x) || 0,
+            y: Number(f.y) || 0,
+            fontSize: Number(f.fontSize) || 20,
+            color: f.color || '#000000',
+            fontStyle: f.fontStyle || 'normal',
+            fontFamily: f.fontFamily || 'Helvetica',
+            alignment: f.alignment || 'left',
+            width: Number(f.width) || 600,
+            variableColors: f.variableColors || {},
+            variableFontStyles: f.variableFontStyles || {},
             variableFontFamilies: f.variableFontFamilies || {},
-            variableUnderlines:   f.variableUnderlines || {},
-            underlineVariables:   !!f.underlineVariables,
+            variableUnderlines: f.variableUnderlines || {},
+            underlineVariables: !!f.underlineVariables,
         }));
 
         formData.append('config', JSON.stringify({ ...config, fields: cleanFields }));
 
         try {
-            const res  = await axios.post(`/api/certificates/config/${selectedEventId}`, formData, {
+            const res = await axios.post(`/api/certificates/config/${selectedEventId}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             toast.success('Certificate configuration saved!');
@@ -716,7 +716,7 @@ const ManageCertificates = () => {
         } finally { setIsBulkSending(false); }
     };
 
-    const handleBulkDownload = async () => {
+    const handleBulkDownload = async (format = 'pdf') => {
         if (!selectedEventId) return;
         setIsBulkDownloading(true);
         const toastId = toast.loading('Fetching data...');
@@ -730,27 +730,38 @@ const ManageCertificates = () => {
             }
 
             toast.loading(`Generating ${certificatesData.length} certificates... This may take a minute.`, { id: toastId });
-            
+
             const zip = new JSZip();
-            const folderName = `Certificates_${certificatesData[0].event.title.replace(/\s+/g, '_')}`;
+            const formatName = format.toUpperCase();
+            const folderName = `Certificates_${formatName}_${certificatesData[0].event.title.replace(/\s+/g, '_')}`;
             const folder = zip.folder(folderName);
 
-            // Generate PDFs in batches to prevent UI freeze
+            // Generate files in batches to prevent UI freeze
             const batchSize = 10;
             for (let i = 0; i < certificatesData.length; i += batchSize) {
                 const batch = certificatesData.slice(i, i + batchSize);
                 const promises = batch.map(async (cert) => {
                     // Try to use Roll Number, fallback to Registration ID or Name
                     let fileName = cert.participant.registrationNumber || cert.registrationId || cert.participant.username.replace(/\s+/g, '_');
-                    fileName = `${fileName.replace(/[^a-zA-Z0-9_-]/g, '')}.pdf`;
-                    
+                    fileName = `${fileName.replace(/[^a-zA-Z0-9_-]/g, '')}.${format}`;
+
                     try {
-                        const blob = await renderCertificateToPDFBlob(
-                            cert.participant,
-                            cert.event,
-                            cert.config,
-                            cert.registrationId
-                        );
+                        let blob;
+                        if (format === 'pdf') {
+                            blob = await renderCertificateToPDFBlob(
+                                cert.participant,
+                                cert.event,
+                                cert.config,
+                                cert.registrationId
+                            );
+                        } else {
+                            blob = await renderCertificateToBlob(
+                                cert.participant,
+                                cert.event,
+                                cert.config,
+                                cert.registrationId
+                            );
+                        }
                         // Add to ZIP
                         folder.file(fileName, blob);
                     } catch (err) {
@@ -764,8 +775,8 @@ const ManageCertificates = () => {
             toast.loading('Zipping files...', { id: toastId });
             const zipBlob = await zip.generateAsync({ type: 'blob' });
             saveAs(zipBlob, `${folderName}.zip`);
-            
-            toast.success('Downloaded successfully!', { id: toastId });
+
+            toast.success(`Downloaded ${formatName}s successfully!`, { id: toastId });
         } catch (err) {
             console.error('Bulk download error:', err);
             toast.error(err.response?.data?.message || 'Bulk download failed', { id: toastId });
@@ -850,13 +861,22 @@ const ManageCertificates = () => {
                                 <option value="volunteers">Volunteers Only</option>
                             </select>
                             <button
-                                onClick={handleBulkDownload}
+                                onClick={() => handleBulkDownload('pdf')}
                                 disabled={isBulkDownloading || !config.template || !config.fields?.length}
                                 className="px-5 py-3 text-indigo-600 dark:text-indigo-400 font-black hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center gap-2 border-l-2 border-emerald-500 disabled:opacity-50 bg-indigo-50/50 dark:bg-indigo-500/5"
                                 title="Download PDFs as ZIP"
                             >
                                 {isBulkDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                                Download PDFs
+                                PDF ZIP
+                            </button>
+                            <button
+                                onClick={() => handleBulkDownload('png')}
+                                disabled={isBulkDownloading || !config.template || !config.fields?.length}
+                                className="px-5 py-3 text-fuchsia-600 dark:text-fuchsia-400 font-black hover:bg-fuchsia-50 dark:hover:bg-fuchsia-500/10 transition-all flex items-center gap-2 border-l-2 border-emerald-500 disabled:opacity-50 bg-fuchsia-50/50 dark:bg-fuchsia-500/5"
+                                title="Download PNGs as ZIP"
+                            >
+                                {isBulkDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                                PNG ZIP
                             </button>
                         </div>
 
