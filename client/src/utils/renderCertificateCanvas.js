@@ -12,7 +12,6 @@
 // ─── helpers ──────────────────────────────────────────────────────────────────
 import { jsPDF } from 'jspdf';
 
-
 const cleanSection = (sec) => {
     if (sec === null || sec === undefined) return '';
     const s = String(sec).trim();
@@ -20,19 +19,25 @@ const cleanSection = (sec) => {
     return s;
 };
 
-/** Load an image from a URL and return an HTMLImageElement (or null on error). */
+const imageCache = {};
+
+/** Load an image from a URL and return an HTMLImageElement (or null on error), caching results. */
 const loadImage = (src) =>
     new Promise((resolve) => {
         if (!src) return resolve(null);
+        if (imageCache[src]) return resolve(imageCache[src]);
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload  = () => resolve(img);
+        img.onload  = () => {
+            imageCache[src] = img;
+            resolve(img);
+        };
         img.onerror = () => resolve(null);
         img.src = src;
     });
 
-/** Resolve a canvas font string from field properties. */
 const buildFont = (fontSize, fontStyle, fontFamily) => {
+
     const fam  = fontFamily || 'Helvetica';
     const size = fontSize   || 20;
     if (fontStyle === 'bolditalic') return `bold italic ${size}px "${fam}", Arial, sans-serif`;
@@ -66,13 +71,12 @@ export const renderCertificateCanvas = async (
     canvas.height = H * dpr;
 
     const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W * dpr, H * dpr);
 
     // ── 1. Background / template image ────────────────────────────────────────
     if (config.template) {
         const img = await loadImage(config.template);
-        if (img) ctx.drawImage(img, 0, 0, W, H);
+        if (img) ctx.drawImage(img, 0, 0, W * dpr, H * dpr);
     }
 
     // ── 2. Resolve variables ──────────────────────────────────────────────────
@@ -102,142 +106,214 @@ export const renderCertificateCanvas = async (
 
     // ── 3. Draw each field ────────────────────────────────────────────────────
     for (const field of (config.fields || [])) {
-        const fontSize   = field.fontSize   || 20;
+        const fontSize   = (field.fontSize   || 20) * dpr;
         const baseColor  = field.color      || '#000000';
         const baseStyle  = field.fontStyle  || 'normal';
         const baseFamily = field.fontFamily || 'Helvetica';
         const align      = field.alignment  || 'left';
-        const maxWidth   = field.width      || 600;
+        const maxWidth   = (field.width      || 600) * dpr;
 
         ctx.save();
 
         if (field.type === 'Text') {
-            // ── Build word chunks from richText segments (or fall back to field.text) ─
-            //
-            // richText format: [{ text: string, style: 'normal'|'bold'|'italic'|'bolditalic' }]
-            // Variables ({Name} etc.) may appear inside any segment's text.
-            // Each word carries its own resolved style; variable overrides still apply.
-
-            const wordsInfo = [];
-
-            const splitText = (rawText, segStyle, isVarSegment, varKey) => {
+            // ── Build runs from richText segments (or fall back to field.text) ─
+            const runs = [];
+            const tokenizeSegmentToRuns = (rawText, segStyle) => {
                 const varRegex = /\{[^}]+\}/g;
                 let cursor = 0;
                 let m;
                 while ((m = varRegex.exec(rawText)) !== null) {
                     if (m.index > cursor) {
-                        // static text before the variable
-                        const staticPart = rawText.slice(cursor, m.index);
-                        splitIntoWords(staticPart, segStyle, false, null);
+                        runs.push({
+                            text: rawText.slice(cursor, m.index),
+                            style: segStyle,
+                            family: baseFamily,
+                            color: baseColor,
+                            isVar: false,
+                            originalVar: null
+                        });
                     }
                     const varKey2 = m[0];
                     const resolved = variables[varKey2] !== undefined ? variables[varKey2] : varKey2;
                     const varStyle = field.variableFontStyles?.[varKey2] || segStyle;
-                    splitIntoWords(resolved, varStyle, true, varKey2);
+                    const varFamily = field.variableFontFamilies?.[varKey2] || baseFamily;
+                    const varColor = field.variableColors?.[varKey2] || baseColor;
+                    runs.push({
+                        text: String(resolved),
+                        style: varStyle,
+                        family: varFamily,
+                        color: varColor,
+                        isVar: true,
+                        originalVar: varKey2
+                    });
                     cursor = varRegex.lastIndex;
                 }
                 if (cursor < rawText.length) {
-                    splitIntoWords(rawText.slice(cursor), segStyle, false, null);
+                    runs.push({
+                        text: rawText.slice(cursor),
+                        style: segStyle,
+                        family: baseFamily,
+                        color: baseColor,
+                        isVar: false,
+                        originalVar: null
+                    });
                 }
-            };
-
-            const splitIntoWords = (text, style, isVar, originalVar) => {
-                const words = String(text).split(' ');
-                words.forEach((w, i) => {
-                    const word = i < words.length - 1 ? w + ' ' : w;
-                    if (word.length > 0) {
-                        wordsInfo.push({ word, style, isVar, originalVar });
-                    }
-                });
             };
 
             if (field.richText && field.richText.length > 0) {
-                // ── NEW: per-segment styles ──────────────────────────────────
                 for (const seg of field.richText) {
-                    splitText(seg.text || '', seg.style || 'normal', false, null);
+                    tokenizeSegmentToRuns(seg.text || '', seg.style || 'normal');
                 }
             } else {
-                // ── LEGACY: single style for whole field ────────────────────
-                splitText(field.text || '', baseStyle, false, null);
+                tokenizeSegmentToRuns(field.text || '', baseStyle);
             }
 
             // ── measure helper ───────────────────────────────────────────────
-            const measure = (word, wStyle, wFamily) => {
+            const measure = (wordText, wStyle, wFamily) => {
                 ctx.font = buildFont(fontSize, wStyle, wFamily);
-                return ctx.measureText(word).width;
+                return ctx.measureText(wordText).width;
             };
 
-            // ── wrap into lines ───────────────────────────────────────────────
+            // ── Group runs into proper Word tokens (splitting only by spaces) ─
+            const words = [];
+            let currentWord = { chunks: [], hasTrailingSpace: false };
+
+            for (const run of runs) {
+                const text = run.text;
+                let wordStart = 0;
+
+                for (let i = 0; i < text.length; i++) {
+                    if (text[i] === ' ') {
+                        if (i > wordStart) {
+                            currentWord.chunks.push({
+                                text: text.slice(wordStart, i),
+                                style: run.style,
+                                family: run.family,
+                                color: run.color,
+                                isVar: run.isVar,
+                                originalVar: run.originalVar
+                            });
+                        }
+                        if (currentWord.chunks.length > 0) {
+                            currentWord.hasTrailingSpace = true;
+                            words.push(currentWord);
+                        }
+                        currentWord = { chunks: [], hasTrailingSpace: false };
+                        wordStart = i + 1;
+                    }
+                }
+
+                if (wordStart < text.length) {
+                    currentWord.chunks.push({
+                        text: text.slice(wordStart),
+                        style: run.style,
+                        family: run.family,
+                        color: run.color,
+                        isVar: run.isVar,
+                        originalVar: run.originalVar
+                    });
+                }
+            }
+            if (currentWord.chunks.length > 0) {
+                words.push(currentWord);
+            }
+
+            const measureWord = (word) => {
+                let w = 0;
+                for (const chunk of word.chunks) {
+                    w += measure(chunk.text, chunk.style, chunk.family);
+                }
+                if (word.hasTrailingSpace) {
+                    w += measure(' ', 'normal', baseFamily);
+                }
+                return w;
+            };
+
+            // ── wrap words into lines ─────────────────────────────────────────
             const linesInfo  = [];
             let currentLine  = [];
             let currentWidth = 0;
 
-            for (const wo of wordsInfo) {
-                // For variables, use variableFontFamilies override; for static text, use field baseFamily
-                const wFamily = (wo.isVar && field.variableFontFamilies?.[wo.originalVar]) || baseFamily;
-                const wWidth  = measure(wo.word, wo.style, wFamily);
+            for (const word of words) {
+                const wordWidth = measureWord(word);
 
-                if (currentWidth + wWidth > maxWidth && currentLine.length > 0) {
+                if (currentWidth + wordWidth > maxWidth && currentLine.length > 0) {
                     linesInfo.push(currentLine);
-                    currentLine  = [wo];
-                    currentWidth = wWidth;
+                    currentLine  = [word];
+                    currentWidth = wordWidth;
                 } else {
-                    currentLine.push(wo);
-                    currentWidth += wWidth;
+                    currentLine.push(word);
+                    currentWidth += wordWidth;
                 }
             }
             if (currentLine.length > 0) linesInfo.push(currentLine);
 
+            // ── measure visual width of line (excluding trailing space of last word) ──
+            const getLineWidth = (lineArr) => {
+                let width = 0;
+                lineArr.forEach((word, idx) => {
+                    for (const chunk of word.chunks) {
+                        width += measure(chunk.text, chunk.style, chunk.family);
+                    }
+                    if (word.hasTrailingSpace && idx < lineArr.length - 1) {
+                        width += measure(' ', 'normal', baseFamily);
+                    }
+                });
+                return width;
+            };
+
             // ── draw lines ────────────────────────────────────────────────────
-            let y          = field.y;
+            let y          = field.y * dpr;
             const lineH    = fontSize * 1.2;
             const lastIdx  = linesInfo.length - 1;
 
             linesInfo.forEach((lineArr, lineIdx) => {
-                const lineWidth = lineArr.reduce((sum, wo) => {
-                    const wFamily = (wo.isVar && field.variableFontFamilies?.[wo.originalVar]) || baseFamily;
-                    return sum + measure(wo.word, wo.style, wFamily);
-                }, 0);
+                const lineWidth = getLineWidth(lineArr);
 
-                let startX = field.x;
-                if (align === 'center') startX = field.x - lineWidth / 2;
-                if (align === 'right')  startX = field.x - lineWidth;
+                let startX = field.x * dpr;
+                if (align === 'center') startX = (field.x * dpr) - lineWidth / 2;
+                if (align === 'right')  startX = (field.x * dpr) - lineWidth;
 
                 let extraPerSpace = 0;
                 if (align === 'justify' && lineIdx < lastIdx) {
-                    const spaceCount = lineArr.filter(wo => wo.word.endsWith(' ')).length;
-                    if (spaceCount > 0) extraPerSpace = (maxWidth - lineWidth) / spaceCount;
+                    const internalGaps = lineArr.length - 1;
+                    if (internalGaps > 0) {
+                        extraPerSpace = (maxWidth - lineWidth) / internalGaps;
+                    }
                 }
 
                 let x = startX;
                 ctx.textAlign    = 'left';
                 ctx.textBaseline = 'alphabetic';
 
-                for (const chunk of lineArr) {
-                    // Color: variable overrides or base color; style comes from word itself
-                    const cColor  = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || baseColor;
-                    const cFamily = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || baseFamily;
+                lineArr.forEach((word, wordIdx) => {
+                    word.chunks.forEach(chunk => {
+                        const cColor  = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || baseColor;
+                        ctx.font      = buildFont(fontSize, chunk.style, chunk.family);
+                        ctx.fillStyle = cColor;
+                        ctx.fillText(chunk.text, x, y);
 
-                    ctx.font      = buildFont(fontSize, chunk.style, cFamily);
-                    ctx.fillStyle = cColor;
-                    ctx.fillText(chunk.word, x, y);
+                        const isUnderlined = chunk.isVar && (field.underlineVariables || field.variableUnderlines?.[chunk.originalVar]);
+                        if (isUnderlined) {
+                            const uw = ctx.measureText(chunk.text).width;
+                            ctx.strokeStyle = cColor;
+                            ctx.lineWidth   = 1 * dpr;
+                            ctx.beginPath();
+                            ctx.moveTo(x, y + 2 * dpr);
+                            ctx.lineTo(x + uw, y + 2 * dpr);
+                            ctx.stroke();
+                        }
 
-                    const isUnderlined = chunk.isVar && (field.underlineVariables || field.variableUnderlines?.[chunk.originalVar]);
-                    if (isUnderlined) {
-                        const uw = ctx.measureText(chunk.word.trimEnd()).width;
-                        ctx.strokeStyle = cColor;
-                        ctx.lineWidth   = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(x, y + 2);
-                        ctx.lineTo(x + uw, y + 2);
-                        ctx.stroke();
+                        x += measure(chunk.text, chunk.style, chunk.family);
+                    });
+
+                    if (word.hasTrailingSpace && wordIdx < lineArr.length - 1) {
+                        x += measure(' ', 'normal', baseFamily);
+                        if (align === 'justify' && lineIdx < lastIdx) {
+                            x += extraPerSpace;
+                        }
                     }
-
-                    x += measure(chunk.word, chunk.style, cFamily);
-                    if (align === 'justify' && lineIdx < lastIdx && chunk.word.endsWith(' ')) {
-                        x += extraPerSpace;
-                    }
-                }
+                });
                 y += lineH;
             });
 
@@ -259,7 +335,7 @@ export const renderCertificateCanvas = async (
                 ctx.fillStyle = baseColor;
                 ctx.textAlign = align === 'justify' ? 'left' : align;
                 ctx.textBaseline = 'alphabetic';
-                ctx.fillText(text, field.x, field.y);
+                ctx.fillText(text, field.x * dpr, field.y * dpr);
             }
         }
 
@@ -287,9 +363,9 @@ export const downloadCertificateAsPDF = async (
     filename = 'certificate.pdf'
 ) => {
     // ------------------------------------------------------------------
-    // 1. Render on a 6× super-sampled offscreen canvas.
+    // 1. Render on a 3× offscreen canvas.
     // ------------------------------------------------------------------
-    const DPR = 6; // 6× → 4800×3390 px ≈ 400 DPI on A4 landscape
+    const DPR = 3; 
     const hiResCanvas = document.createElement('canvas');
 
     await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
@@ -311,3 +387,53 @@ export const downloadCertificateAsPDF = async (
     pdf.addImage(imgDataUrl, 'PNG', 0, 0, pW, pH, undefined, 'FAST');
     pdf.save(filename);
 };
+
+/**
+ * Render a certificate and return it as a PNG Blob.
+ * This is useful for bulk downloading certificates as images into a ZIP file.
+ */
+export const renderCertificateToBlob = async (
+    participantData,
+    eventData,
+    config,
+    registrationId = ''
+) => {
+    // We can use a lower DPR like 3 for images so the ZIP doesn't get excessively large,
+    // but still maintains good quality (2400x1695)
+    const DPR = 3; 
+    const hiResCanvas = document.createElement('canvas');
+
+    await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
+
+    return new Promise((resolve, reject) => {
+        hiResCanvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas to Blob failed'));
+        }, 'image/png', 1.0);
+    });
+};
+
+/**
+ * Render a certificate and return it as a PDF Blob.
+ * This is useful for bulk downloading certificates as PDFs into a ZIP file.
+ */
+export const renderCertificateToPDFBlob = async (
+    participantData,
+    eventData,
+    config,
+    registrationId = ''
+) => {
+    const DPR = 3; 
+    const hiResCanvas = document.createElement('canvas');
+
+    await renderCertificateCanvas(hiResCanvas, participantData, eventData, config, registrationId, DPR);
+
+    const imgDataUrl = hiResCanvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pW  = pdf.internal.pageSize.getWidth();   // 297 mm
+    const pH  = pdf.internal.pageSize.getHeight();  // 210 mm
+
+    pdf.addImage(imgDataUrl, 'PNG', 0, 0, pW, pH, undefined, 'FAST');
+    return pdf.output('blob');
+};
+
