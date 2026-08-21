@@ -705,10 +705,10 @@ const Dashboard = () => {
                 ctx.fillText(line, 250, venueStartY + (index * venueLineHeight));
             });
 
-            // Optional decorative header (no participant details)
+            // Participant details header
             ctx.fillStyle = '#ecfeff';
             ctx.beginPath();
-            ctx.roundRect(100, 580, 600, 120, 20);
+            ctx.roundRect(100, 580, 600, 140, 20);
             ctx.fill();
 
             ctx.strokeStyle = '#06b6d4';
@@ -725,6 +725,49 @@ const Dashboard = () => {
                 ctx.fillStyle = '#0e7490';
                 ctx.font = 'bold 26px Inter, sans-serif';
                 ctx.fillText(reg.teamName, 130, 645);
+            } else {
+                // For individual events, display participant details
+                const participantName = reg.participant?.username || user?.username || 'Participant';
+                const yearDept = reg.participant?.yearAndDept || user?.yearAndDept || 'N/A';
+                const section = reg.participant?.section || user?.section || '';
+                const department = reg.participant?.department || user?.department || '';
+                
+                // Combine year, department, and section
+                const classInfo = section ? `${yearDept} - ${section}` : yearDept;
+                
+                // Label
+                ctx.fillStyle = '#0891b2';
+                ctx.font = '700 14px Inter, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('PARTICIPANT', 130, 605);
+                
+                // Name with wrapping
+                ctx.fillStyle = '#0e7490';
+                ctx.font = 'bold 22px Inter, sans-serif';
+                let nameLines = wrapText(ctx, participantName, 350);
+                if (nameLines.length > 2) {
+                    nameLines = nameLines.slice(0, 2);
+                    nameLines[1] = nameLines[1].slice(0, -3) + '...';
+                }
+                nameLines.forEach((line, idx) => {
+                    ctx.fillText(line, 130, 630 + (idx * 25));
+                });
+                
+                // Class/Department info with wrapping
+                ctx.fillStyle = '#0891b2';
+                ctx.font = '700 14px Inter, sans-serif';
+                ctx.fillText('CLASS', 130, 680);
+                
+                ctx.fillStyle = '#0e7490';
+                ctx.font = 'bold 18px Inter, sans-serif';
+                let classLines = wrapText(ctx, classInfo, 350);
+                if (classLines.length > 1) {
+                    classLines = classLines.slice(0, 1);
+                    classLines[0] = classLines[0].slice(0, -3) + '...';
+                }
+                classLines.forEach((line, idx) => {
+                    ctx.fillText(line, 130, 700 + (idx * 20));
+                });
             }
 
             // QR Code section
@@ -777,15 +820,26 @@ const Dashboard = () => {
                     'Build skills through experiences.',
                     'Every effort counts.'
                 ];
-                // Motivational quote placed above QR code
+                // Motivational quote placed above QR code with text wrapping
                 const msg = motivations[Math.floor(Math.random() * motivations.length)];
                 ctx.fillStyle = '#06b6d4';
-                ctx.font = '800 22px Inter, sans-serif';
+                ctx.font = '800 20px Inter, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.save();
                 // ctx.shadowColor = 'rgba(0, 157, 255, 0.61)';
                 ctx.shadowBlur = 4;
-                ctx.fillText(msg, 400, 650);
+                
+                // Wrap motivational quote to fit within the card width
+                let msgLines = wrapText(ctx, msg, 500);
+                if (msgLines.length > 2) {
+                    msgLines = msgLines.slice(0, 2);
+                    msgLines[1] = msgLines[1].slice(0, -3) + '...';
+                }
+                
+                const msgStartY = 650 - ((msgLines.length - 1) * 24) / 2;
+                msgLines.forEach((line, idx) => {
+                    ctx.fillText(line, 400, msgStartY + (idx * 24));
+                });
                 ctx.restore();
 
                 // Draw QR code
