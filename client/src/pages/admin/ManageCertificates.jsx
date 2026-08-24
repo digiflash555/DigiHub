@@ -787,6 +787,25 @@ const ManageCertificates = () => {
         }
     };
 
+    const handleEligibleExcelDownload = async () => {
+        if (!selectedEventId) return;
+        const toastId = toast.loading('Downloading eligible list...');
+        try {
+            const res = await axios.get(`/api/certificates/eligible-export/${selectedEventId}?target=${sendTarget}`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `eligible_certificates_${selectedEventId}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success('Downloaded successfully!', { id: toastId });
+        } catch (error) {
+            toast.error('Failed to download eligible list', { id: toastId });
+        }
+    };
 
     // Live canvas preview
     useEffect(() => {
@@ -879,6 +898,14 @@ const ManageCertificates = () => {
                             >
                                 {isDownloadingPNG ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                                 PNG ZIP
+                            </button>
+                            <button
+                                onClick={handleEligibleExcelDownload}
+                                className="px-5 py-3 text-blue-600 dark:text-blue-400 font-black hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all flex items-center gap-2 border-l-2 border-emerald-500 bg-blue-50/50 dark:bg-blue-500/5"
+                                title="Download Data as XLSX"
+                            >
+                                <Download className="w-5 h-5" />
+                                XLSX Data
                             </button>
                         </div>
 
