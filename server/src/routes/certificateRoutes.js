@@ -554,4 +554,109 @@ router.get('/bulk-data/:eventId', protect, authorize('Admin'), async (req, res, 
     }
 });
 
+// @desc    Download Excel sheet of eligible participants/volunteers for certificates
+// @route   GET /api/certificates/eligible-export/:eventId
+// @access  Private
+router.get('/eligible-export/:eventId', protect, async (req, res, next) => {
+    try {
+        const event = await Event.findById(req.params.eventId);
+        if (!event) {
+            res.status(404);
+            throw new Error('Event not found');
+        }
+
+        // Authorization check
+        if (
+            req.user.role !== 'Admin' &&
+            event.facultyCoordinator?.toString() !== req.user._id.toString() &&
+            event.studentCoordinator?.toString() !== req.user._id.toString() &&
+            event.createdBy?.toString() !== req.user._id.toString()
+        ) {
+            res.status(403);
+            throw new Error('Not authorized to access this event data');
+        }
+
+        const exceljs = require('exceljs');
+        const workbook = new exceljs.Workbook();
+        const worksheet = workbook.addWorksheet('Eligible Candidates');
+        
+        worksheet.columns = [
+            { header: 'Registration ID', key: 'registrationId', width: 20 },
+            { header: 'Type', key: 'type', width: 15 },
+            { header: 'Name', key: 'username', width: 25 },
+            { header: 'Email', key: 'email', width: 30 },
+            { header: 'Registration No', key: 'registrationNumber', width: 20 },
+            { header: 'Year & Dept', key: 'yearAndDept', width: 20 },
+            { header: 'College', key: 'collegeName', width: 30 }
+        ];
+
+        // Format header row
+        worksheet.getRow(1).font = { bold: true };
+        worksheet.getRow(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0E0E0' }
+        };
+
+        const target = req.query.target || 'both'; // 'participants', 'volunteers', 'both'
+
+        if (target === 'both' || target === 'participants') {
+            const eligibleRegs = await Registration.find({
+                event: req.params.eventId,
+                attendanceStatus: true
+            }).populate('participant');
+
+            for (const reg of eligibleRegs) {
+                if (event.feedbackForm && event.feedbackForm.length > 0 && !reg.feedbackSubmitted) {
+                    continue;
+                }
+                worksheet.addRow({
+                    registrationId: reg.registrationId,
+                    type: 'Participant',
+                    username: reg.participant?.username || 'N/A',
+                    email: reg.participant?.email || 'N/A',
+                    registrationNumber: reg.participant?.registrationNumber || 'N/A',
+                    yearAndDept: reg.participant?.yearAndDept || 'N/A',
+                    collegeName: reg.participant?.collegeName || 'N/A'
+                });
+            }
+        }
+
+        if (target === 'both' || target === 'volunteers') {
+            const volunteers = await VolunteerApplication.find({
+                event: req.params.eventId,
+                status: 'Approved'
+            }).populate('applicant');
+
+            for (const vol of volunteers) {
+                worksheet.addRow({
+                    registrationId: `VOL-${vol._id.toString().slice(-6).toUpperCase()}`,
+                    type: 'Volunteer',
+                    username: vol.applicant?.username || 'N/A',
+                    email: vol.applicant?.email || 'N/A',
+                    registrationNumber: vol.applicant?.registrationNumber || 'N/A',
+                    yearAndDept: vol.applicant?.yearAndDept || 'N/A',
+                    collegeName: vol.applicant?.collegeName || 'N/A'
+                });
+            }
+        }
+
+        const safeTitle = (event.title || 'Event').replace(/[^a-zA-Z0-9]/g, '_');
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${safeTitle}_Eligible_Candidates.xlsx"`
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        require('fs').appendFileSync('cert_export_error.log', error.stack + '\\n');
+        next(error);
+    }
+});
+
 module.exports = router;
