@@ -162,6 +162,26 @@ const FacultyDashboard = ({ user }) => {
         }
     };
 
+    const downloadEligibleExcel = async (eventId) => {
+        try {
+            const res = await axios.get(`/api/certificates/eligible-export/${eventId}`, {
+                responseType: 'blob',
+                headers: {
+                    Authorization: `Bearer ${user.token}`
+                }
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `eligible_certificates_${eventId}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            toast.error('Failed to download eligible list');
+        }
+    };
+
     useEffect(() => {
         fetchFacultyData();
     }, []);
@@ -270,6 +290,14 @@ const FacultyDashboard = ({ user }) => {
                                                     <div className="flex gap-2">
                                                         <button onClick={() => downloadRegistrationPDF(ev._id)} className="flex-1 py-2 bg-white dark:bg-[#20242B] text-amber-600 dark:text-amber-400 rounded-xl font-bold text-xs shadow-sm border border-amber-100 dark:border-amber-500/20 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center gap-2">
                                                             <Download className="w-3.5 h-3.5" /> PDF
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Certificates</span>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadEligibleExcel(ev._id); }} className="flex-1 py-2 bg-white dark:bg-[#20242B] text-blue-600 dark:text-blue-400 rounded-xl font-bold text-xs shadow-sm border border-blue-100 dark:border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-2">
+                                                            <Download className="w-3.5 h-3.5" /> Eligible (Excel)
                                                         </button>
                                                     </div>
                                                 </div>
@@ -399,6 +427,26 @@ const Dashboard = () => {
             link.remove();
         } catch (error) {
             toast.error('Failed to download registration PDF');
+        }
+    };
+
+    const downloadEligibleExcel = async (eventId) => {
+        try {
+            const res = await axios.get(`/api/certificates/eligible-export/${eventId}`, {
+                responseType: 'blob',
+                headers: {
+                    Authorization: `Bearer ${user.token}`
+                }
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `eligible_certificates_${eventId}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            toast.error('Failed to download eligible list');
         }
     };
 
@@ -1127,6 +1175,17 @@ const Dashboard = () => {
                                                             className="flex-1 py-2 bg-white dark:bg-[#20242B] text-amber-600 dark:text-amber-400 rounded-xl font-bold text-xs shadow-sm border border-amber-100 dark:border-amber-500/20 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center gap-2"
                                                         >
                                                             <Download className="w-3.5 h-3.5" /> PDF
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Certificates</span>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadEligibleExcel(ev._id); }}
+                                                            className="flex-1 py-2 bg-white dark:bg-[#20242B] text-blue-600 dark:text-blue-400 rounded-xl font-bold text-xs shadow-sm border border-blue-100 dark:border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                                                        >
+                                                            <Download className="w-3.5 h-3.5" /> Eligible (Excel)
                                                         </button>
                                                     </div>
                                                 </div>
