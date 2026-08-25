@@ -17,6 +17,33 @@ const generateToken = (id) => {
     });
 };
 
+/**
+ * Returns true if the given dateOfBirth falls on today's month & day
+ * (year-agnostic — works for birthday regardless of birth year).
+ */
+const isTodayBirthday = (dateOfBirth) => {
+    if (!dateOfBirth) return false;
+    const dob   = new Date(dateOfBirth);
+    const today = new Date();
+    return (
+        dob.getMonth() === today.getMonth() &&
+        dob.getDate()  === today.getDate()
+    );
+};
+
+/**
+ * Fire a birthday wish email (fire-and-forget, never blocks the response).
+ */
+const sendBirthdayWish = (user) => {
+    emailService.triggerAutomaticEmail(
+        'BIRTHDAY_WISH',
+        { user_name: user.username },
+        user.email,
+        null,
+        user._id
+    );
+};
+
 // @desc    Register a new PARTICIPANT (public)
 // @route   POST /api/auth/register
 // @access  Public
@@ -62,6 +89,14 @@ exports.register = async (req, res, next) => {
         if (user) {
             // Trigger automatic email for user registration
             emailService.triggerAutomaticEmail('USER_REGISTRATION', { user_name: user.username, email: user.email }, user.email, null, user._id);
+
+            // 🎂 If the user registered on their own birthday, send a birthday wish too!
+            if (isTodayBirthday(user.dateOfBirth)) {
+                console.log(`[Auth] 🎂 New user ${user.username} registered on their birthday — queuing birthday wish in 1 minute!`);
+                setTimeout(() => {
+                    sendBirthdayWish(user);
+                }, 60000); // 1 minute delay
+            }
 
             res.status(201).json({
                 _id: user._id,
@@ -265,6 +300,14 @@ exports.login = async (req, res, next) => {
         const user = await User.findOne({ email }).select('+password');
 
         if (user && (await user.matchPassword(password))) {
+            // 🎂 Send birthday wish if today is the user's birthday
+            if (isTodayBirthday(user.dateOfBirth)) {
+                console.log(`[Auth] 🎂 ${user.username} logged in on their birthday — queuing birthday wish in 1 minute!`);
+                setTimeout(() => {
+                    sendBirthdayWish(user);
+                }, 60000); // 1 minute delay
+            }
+
             res.json({
                 _id: user._id,
                 username: user.username,
