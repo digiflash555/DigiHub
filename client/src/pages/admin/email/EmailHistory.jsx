@@ -77,11 +77,18 @@ const EmailHistory = () => {
                                         )}
                                     </td>
                                     <td className="px-5 py-4">
-                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-black ${
-                                            h.emailType === 'Manual'
-                                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300'
-                                                : 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300'
-                                        }`}>{h.emailType}</span>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className={`px-2.5 py-1 rounded-lg text-xs font-black ${
+                                                h.emailType === 'Manual'
+                                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300'
+                                                    : 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300'
+                                            }`}>{h.emailType}</span>
+                                            {(h.subject?.includes('Birthday') || h.subject?.includes('🎂')) && (
+                                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                                    🎂 Birthday
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-bold">{h.recipientCount}</td>
                                     <td className="px-5 py-4">
