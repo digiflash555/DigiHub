@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { Save, RefreshCw, ChevronDown, ChevronUp, Loader2, Tag, Calendar, Globe, Trash2 } from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, ChevronUp, Loader2, Tag, Calendar, Globe, Trash2, Cake, Clock, Sparkles } from 'lucide-react';
 
 const quillModules = {
     toolbar: [
@@ -28,6 +28,7 @@ const TRIGGER_LABELS = {
     EVENT_REMINDER:           { label: '⏰ Event Reminder (1 Hour Before)',       color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
     SUPPORT_NEW_TICKET:       { label: '📬 User Care — New Ticket (to Members)', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
     SUPPORT_STATUS_UPDATE:    { label: '🔔 User Care — Status Update (to User)', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
+    BIRTHDAY_WISH:            { label: '🎂 Birthday Wishes (Auto Daily)',         color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
 };
 
 const TemplateCard = ({ tmpl, onSave, eventId }) => {
@@ -196,6 +197,50 @@ const EmailTemplates = () => {
                     <RefreshCw className="w-4 h-4" />
                 </button>
             </div>
+
+            {/* ── Birthday Auto-Email Feature Banner ── */}
+            {!selectedEventId && (
+                <div className="relative overflow-hidden rounded-2xl border border-rose-200 dark:border-rose-800/50 bg-gradient-to-br from-rose-50 via-pink-50 to-fuchsia-50 dark:from-rose-950/30 dark:via-pink-950/20 dark:to-fuchsia-950/30 p-5">
+                    {/* Decorative blobs */}
+                    <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-rose-200/40 dark:bg-rose-700/20 blur-2xl pointer-events-none" />
+                    <div className="absolute -bottom-4 right-12 w-20 h-20 rounded-full bg-fuchsia-200/40 dark:bg-fuchsia-700/20 blur-xl pointer-events-none" />
+
+                    <div className="relative flex items-start gap-4">
+                        {/* Icon */}
+                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-rose-300/40 dark:shadow-rose-900/40">
+                            <Cake className="w-6 h-6 text-white" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h3 className="font-black text-rose-800 dark:text-rose-200 text-base">🎉 Birthday Wishes — Auto Email</h3>
+                                <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black tracking-widest uppercase">Active</span>
+                            </div>
+                            <p className="text-sm text-rose-700/80 dark:text-rose-300/80 mb-3 leading-relaxed">
+                                Every day at <strong>8:00 AM</strong>, the system automatically sends a personalized birthday wish to all users whose birthday falls on that day — addressed by their name, signed by <strong>DigiFlash Association of CSE</strong>.
+                            </p>
+
+                            {/* Feature bullets */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                {[
+                                    { icon: Clock,    text: 'Runs daily at 8:00 AM automatically' },
+                                    { icon: Sparkles, text: 'Personalized greeting with recipient\'s name' },
+                                    { icon: Cake,     text: 'Signed by DigiFlash Association of CSE' },
+                                ].map(({ icon: Icon, text }) => (
+                                    <div key={text} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/40">
+                                        <Icon className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                                        <span className="text-xs font-bold text-rose-700 dark:text-rose-300">{text}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <p className="text-xs text-rose-500/70 dark:text-rose-400/60 mt-3 font-medium">
+                                💡 Tip: Toggle the <strong>🎂 Birthday Wishes</strong> template below to enable or disable this feature. Edit the template to customise the message.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Event Selector */}
             <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 flex items-center gap-4">
