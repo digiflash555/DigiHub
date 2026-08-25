@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 const EmailTemplate = require('../models/EmailTemplate');
+const User = require('../models/User');
 
 // Run every hour to check for events that completed 24+ hours ago
 // and delete the event pass (QR code) for their registrations.
@@ -100,6 +101,64 @@ const startCronJobs = () => {
             }
         } catch (error) {
             console.error('[Cron] Error in reminder cron job:', error);
+        }
+    });
+
+    // ── Birthday Wishes ── runs every day at 08:00 AM ────────────────────────
+    cron.schedule('0 8 * * *', async () => {
+        try {
+            console.log('[Cron] Running birthday wishes job...');
+            const emailService = require('../services/emailService');
+
+            const now = new Date();
+            const todayMonth = now.getMonth() + 1; // 1-based
+            const todayDay   = now.getDate();
+
+            // Find all users whose birth month & day match today
+            const birthdayUsers = await User.find({
+                dateOfBirth: { $exists: true, $ne: null }
+            }).select('username email dateOfBirth');
+
+            const todayBirthdays = birthdayUsers.filter(u => {
+                const dob = new Date(u.dateOfBirth);
+                return (
+                    dob.getMonth() + 1 === todayMonth &&
+                    dob.getDate()      === todayDay
+                );
+            });
+
+            if (todayBirthdays.length === 0) {
+                console.log('[Cron] No birthdays today.');
+                return;
+            }
+
+            console.log(`[Cron] Sending birthday wishes to ${todayBirthdays.length} user(s)...`);
+
+            // Load the BIRTHDAY_WISH template once
+            const tmpl = await EmailTemplate.findOne({ trigger: 'BIRTHDAY_WISH', enabled: true });
+
+            for (const user of todayBirthdays) {
+                const variables = { user_name: user.username };
+                const subject = tmpl
+                    ? emailService.compileTemplate(tmpl.subject, variables)
+                    : `🎂 Happy Birthday, ${user.username}! Warm Wishes from DigiFlash Association of CSE`;
+                const htmlBody = tmpl
+                    ? emailService.compileTemplate(tmpl.body, variables)
+                    : `<p>Dear <strong>${user.username}</strong>,</p><p>Wishing you a very Happy Birthday! 🎉</p><p>Regards,<br/>DigiFlash Association of CSE</p>`;
+
+                try {
+                    await emailService._sendViaBrevoAPI({
+                        to:      user.email,
+                        subject,
+                        htmlBody
+                    });
+                    console.log(`[Cron] 🎂 Birthday wish sent to ${user.username} <${user.email}>`);
+                } catch (err) {
+                    console.error(`[Cron] Failed to send birthday wish to ${user.email}:`, err.message);
+                }
+            }
+        } catch (error) {
+            console.error('[Cron] Error in birthday wishes cron job:', error);
         }
     });
 };
