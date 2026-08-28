@@ -61,6 +61,7 @@ router.post('/config/:eventId', protect, authorize('Admin'), upload.single('temp
                 richText: Array.isArray(f.richText) ? f.richText.map(s => ({
                     text: String(s.text || ''),
                     style: ['bold', 'italic', 'bolditalic'].includes(s.style) ? s.style : 'normal',
+                    color: typeof s.color === 'string' && s.color.startsWith('#') ? s.color : null,
                 })) : null,
                 x: Number(f.x) || 0,
                 y: Number(f.y) || 0,
@@ -73,6 +74,7 @@ router.post('/config/:eventId', protect, authorize('Admin'), upload.single('temp
                 variableColors: f.variableColors && typeof f.variableColors === 'object' ? f.variableColors : {},
                 variableFontStyles: f.variableFontStyles && typeof f.variableFontStyles === 'object' ? f.variableFontStyles : {},
                 variableFontFamilies: f.variableFontFamilies && typeof f.variableFontFamilies === 'object' ? f.variableFontFamilies : {},
+                variableUnderlines: f.variableUnderlines && typeof f.variableUnderlines === 'object' ? f.variableUnderlines : {},
                 underlineVariables: !!f.underlineVariables,
             }));
         } else {
