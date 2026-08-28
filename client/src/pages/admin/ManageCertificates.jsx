@@ -47,10 +47,15 @@ const segmentsToHTML = (segs) => {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
         const s = seg.style || 'normal';
-        if (s === 'bolditalic') return `<b><i>${t}</i></b>`;
-        if (s === 'bold') return `<b>${t}</b>`;
-        if (s === 'italic') return `<i>${t}</i>`;
-        return t;
+        let inner = t;
+        if (s === 'bolditalic') inner = `<b><i>${t}</i></b>`;
+        else if (s === 'bold') inner = `<b>${t}</b>`;
+        else if (s === 'italic') inner = `<i>${t}</i>`;
+        
+        if (seg.color) {
+            return `<span style="color: ${seg.color}">${inner}</span>`;
+        }
+        return inner;
     }).join('');
 };
 
@@ -60,7 +65,7 @@ const htmlToSegments = (html) => {
     div.innerHTML = html || '';
     const raw = [];
 
-    const traverse = (node, bold, italic) => {
+    const traverse = (node, bold, italic, color) => {
         if (node.nodeType === 3) {                 // TEXT_NODE
             const text = node.textContent || '';
             if (text) {
@@ -70,28 +75,31 @@ const htmlToSegments = (html) => {
                         : bold ? 'bold'
                             : italic ? 'italic'
                                 : 'normal',
+                    color: color
                 });
             }
         } else if (node.nodeType === 1) {          // ELEMENT_NODE
             const tag = node.tagName.toLowerCase();
-            let b = bold, it = italic;
+            let b = bold, it = italic, c = color;
             if (tag === 'b' || tag === 'strong') b = true;
             if (tag === 'i' || tag === 'em') it = true;
+            if (tag === 'font' && node.color) c = node.color;
+            if (node.style && node.style.color) c = node.style.color;
             // Treat block breaks as a space
             if (tag === 'br' || tag === 'div' || tag === 'p') {
                 raw.push({ text: ' ', style: 'normal' });
             }
-            node.childNodes.forEach(c => traverse(c, b, it));
+            node.childNodes.forEach(child => traverse(child, b, it, c));
         }
     };
 
-    div.childNodes.forEach(c => traverse(c, false, false));
+    div.childNodes.forEach(c => traverse(c, false, false, null));
 
     // Merge adjacent same-style segments
     const merged = [];
     for (const seg of raw) {
         if (!seg.text) continue;
-        if (merged.length && merged[merged.length - 1].style === seg.style) {
+        if (merged.length && merged[merged.length - 1].style === seg.style && merged[merged.length - 1].color === seg.color) {
             merged[merged.length - 1].text += seg.text;
         } else {
             merged.push({ ...seg });
@@ -103,7 +111,7 @@ const htmlToSegments = (html) => {
 /** Derive an initial richText array from a field (supports old & new format) */
 const getInitialRichText = (field) => {
     if (field.richText && field.richText.length > 0) return field.richText;
-    if (field.text) return [{ text: field.text, style: field.fontStyle || 'normal' }];
+    if (field.text) return [{ text: field.text, style: field.fontStyle || 'normal', color: field.color }];
     return [];
 };
 
@@ -137,6 +145,13 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
     const applyFormat = (cmd) => {
         divRef.current.focus();
         document.execCommand(cmd, false, null);
+        handleInput();
+        updateSelState();
+    };
+
+    const applyColor = (colorHex) => {
+        divRef.current.focus();
+        document.execCommand('foreColor', false, colorHex);
         handleInput();
         updateSelState();
     };
@@ -184,6 +199,19 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 >
                     <Italic className="w-3.5 h-3.5" />
                 </button>
+
+                {/* Color Picker for Selection */}
+                <div 
+                    className="relative overflow-hidden h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer flex-shrink-0" 
+                    title="Apply color to selected text"
+                >
+                    <input
+                        type="color"
+                        onChange={e => { e.preventDefault(); applyColor(e.target.value); }}
+                        className="absolute -top-2 -left-2 w-[150%] h-[150%] cursor-pointer"
+                        defaultValue={fieldColor || "#000000"}
+                    />
+                </div>
 
                 <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-0.5" />
 
@@ -652,7 +680,11 @@ const ManageCertificates = () => {
         const cleanFields = (config.fields || []).map(f => ({
             type: f.type,
             text: f.richText ? f.richText.map(s => s.text).join('') : (f.text || ''),
-            richText: f.richText || null,
+            richText: f.richText ? f.richText.map(s => ({
+                text: s.text,
+                style: s.style,
+                color: s.color || null
+            })) : null,
             x: Number(f.x) || 0,
             y: Number(f.y) || 0,
             fontSize: Number(f.fontSize) || 20,
