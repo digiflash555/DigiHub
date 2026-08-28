@@ -118,7 +118,7 @@ export const renderCertificateCanvas = async (
         if (field.type === 'Text') {
             // ── Build runs from richText segments (or fall back to field.text) ─
             const runs = [];
-            const tokenizeSegmentToRuns = (rawText, segStyle) => {
+            const tokenizeSegmentToRuns = (rawText, segStyle, segColor) => {
                 const varRegex = /\{[^}]+\}/g;
                 let cursor = 0;
                 let m;
@@ -128,7 +128,7 @@ export const renderCertificateCanvas = async (
                             text: rawText.slice(cursor, m.index),
                             style: segStyle,
                             family: baseFamily,
-                            color: baseColor,
+                            color: segColor || baseColor,
                             isVar: false,
                             originalVar: null
                         });
@@ -137,7 +137,7 @@ export const renderCertificateCanvas = async (
                     const resolved = variables[varKey2] !== undefined ? variables[varKey2] : varKey2;
                     const varStyle = field.variableFontStyles?.[varKey2] || segStyle;
                     const varFamily = field.variableFontFamilies?.[varKey2] || baseFamily;
-                    const varColor = field.variableColors?.[varKey2] || baseColor;
+                    const varColor = field.variableColors?.[varKey2] || segColor || baseColor;
                     runs.push({
                         text: String(resolved),
                         style: varStyle,
@@ -153,7 +153,7 @@ export const renderCertificateCanvas = async (
                         text: rawText.slice(cursor),
                         style: segStyle,
                         family: baseFamily,
-                        color: baseColor,
+                        color: segColor || baseColor,
                         isVar: false,
                         originalVar: null
                     });
@@ -162,10 +162,10 @@ export const renderCertificateCanvas = async (
 
             if (field.richText && field.richText.length > 0) {
                 for (const seg of field.richText) {
-                    tokenizeSegmentToRuns(seg.text || '', seg.style || 'normal');
+                    tokenizeSegmentToRuns(seg.text || '', seg.style || 'normal', seg.color);
                 }
             } else {
-                tokenizeSegmentToRuns(field.text || '', baseStyle);
+                tokenizeSegmentToRuns(field.text || '', baseStyle, null);
             }
 
             // ── measure helper ───────────────────────────────────────────────
@@ -288,7 +288,7 @@ export const renderCertificateCanvas = async (
 
                 lineArr.forEach((word, wordIdx) => {
                     word.chunks.forEach(chunk => {
-                        const cColor  = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || baseColor;
+                        const cColor  = chunk.color;
                         ctx.font      = buildFont(fontSize, chunk.style, chunk.family);
                         ctx.fillStyle = cColor;
                         ctx.fillText(chunk.text, x, y);
