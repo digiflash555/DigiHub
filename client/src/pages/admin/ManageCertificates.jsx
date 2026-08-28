@@ -123,12 +123,125 @@ const getInitialRichText = (field) => {
     return [];
 };
 
+/* ─── preset colors for the inline color palette ─────────────────────── */
+
+const PALETTE_COLORS = [
+    // Row 1 – neutrals
+    '#000000', '#1e293b', '#475569', '#94a3b8',
+    // Row 2 – warm
+    '#ef4444', '#f97316', '#f59e0b', '#eab308',
+    // Row 3 – cool
+    '#22c55e', '#06b6d4', '#3b82f6', '#6366f1',
+    // Row 4 – vivid
+    '#8b5cf6', '#ec4899', '#ffffff', '#fef9c3',
+];
+
+/* ─── ColorPickerButton ──────────────────────────────────────────────── */
+/**
+ * An inline color-palette button for the RichTextEditor toolbar.
+ *
+ * CRITICAL: every interactive element here uses onMouseDown + e.preventDefault()
+ * so the contenteditable editor NEVER loses focus and the browser selection is
+ * NEVER dropped.  This is the same trick used by the Bold / Italic buttons.
+ */
+const ColorPickerButton = ({ applyColor, fieldColor }) => {
+    const [open, setOpen]       = useState(false);
+    const [active, setActive]   = useState(fieldColor || '#000000');
+    const [custom, setCustom]   = useState(fieldColor || '#000000');
+
+    const pick = (hex) => {
+        setActive(hex);
+        applyColor(hex);
+        setOpen(false);
+    };
+
+    return (
+        <div className="relative flex-shrink-0">
+            {/* Swatch button – toggles palette */}
+            <button
+                type="button"
+                title="Text color"
+                onMouseDown={e => { e.preventDefault(); setOpen(o => !o); }}
+                className="w-8 h-8 rounded-lg border-2 flex-shrink-0 transition-transform hover:scale-110 active:scale-95"
+                style={{
+                    background: active,
+                    borderColor: active === '#ffffff' ? '#cbd5e1' : active,
+                    boxShadow: open ? `0 0 0 2px #6366f1` : undefined,
+                }}
+            />
+
+            {/* Palette popup – onMouseDown on the wrapper catches any stray clicks */}
+            {open && (
+                <div
+                    className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#1e2230] rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl p-3 space-y-2"
+                    style={{ minWidth: 148 }}
+                    onMouseDown={e => e.preventDefault()} // keep editor focus for every click inside
+                >
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Text Color</p>
+
+                    {/* Preset swatches */}
+                    <div className="grid grid-cols-4 gap-1.5">
+                        {PALETTE_COLORS.map(c => (
+                            <button
+                                key={c}
+                                type="button"
+                                onMouseDown={e => { e.preventDefault(); pick(c); }}
+                                className="w-7 h-7 rounded-lg transition-transform hover:scale-110 active:scale-95"
+                                style={{
+                                    background: c,
+                                    border: active === c ? '2px solid #6366f1' : c === '#ffffff' ? '1px solid #cbd5e1' : '1px solid transparent',
+                                    outline: active === c ? '2px solid #6366f166' : 'none',
+                                    outlineOffset: 1,
+                                }}
+                                title={c}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Custom hex input – no native picker, just a text box */}
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700">
+                        {/* live preview swatch */}
+                        <div
+                            className="w-5 h-5 rounded-md flex-shrink-0 border border-slate-200"
+                            style={{ background: custom }}
+                        />
+                        <input
+                            type="text"
+                            maxLength={7}
+                            placeholder="#rrggbb"
+                            value={custom}
+                            onChange={e => setCustom(e.target.value)}
+                            onMouseDown={e => e.stopPropagation()} // allow typing focus
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (/^#[0-9a-fA-F]{6}$/.test(custom)) pick(custom);
+                                }
+                            }}
+                            className="flex-1 text-[10px] font-mono bg-slate-50 dark:bg-[#252b3b] border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-400 text-slate-700 dark:text-slate-200"
+                        />
+                        <button
+                            type="button"
+                            onMouseDown={e => {
+                                e.preventDefault();
+                                if (/^#[0-9a-fA-F]{6}$/.test(custom)) pick(custom);
+                            }}
+                            className="text-[9px] font-black px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 /* ─── RichTextEditor component ───────────────────────────────────────── */
 
 const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) => {
     const divRef = useRef(null);
     const mounted = useRef(false);
-    const savedSelRef = useRef(null);   // stores the saved Selection range
     const [selBold, setSelBold] = useState(false);
     const [selItalic, setSelItalic] = useState(false);
 
@@ -150,24 +263,11 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
         setSelItalic(document.queryCommandState('italic'));
     };
 
-    /** Save the current selection range so we can restore it after focus loss */
-    const saveSelection = () => {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-            savedSelRef.current = sel.getRangeAt(0).cloneRange();
-        }
-    };
-
-    /** Restore the saved selection range into the editor */
-    const restoreSelection = () => {
-        if (!savedSelRef.current) return;
-        divRef.current.focus();
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(savedSelRef.current);
-    };
-
-    // Use onMouseDown + preventDefault so the editor keeps focus when clicking toolbar
+    /**
+     * All toolbar actions use onMouseDown + e.preventDefault() so the editor
+     * NEVER loses focus and the browser selection is NEVER cleared before
+     * execCommand runs.
+     */
     const applyFormat = (cmd) => {
         divRef.current.focus();
         document.execCommand(cmd, false, null);
@@ -175,8 +275,13 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
         updateSelState();
     };
 
+    /**
+     * Called by ColorPickerButton with a hex string.
+     * At this point focus is still in the editor (ColorPickerButton uses preventDefault),
+     * so the selection is still live — no save/restore gymnastics needed.
+     */
     const applyColor = (colorHex) => {
-        restoreSelection();  // put selection back before applying
+        divRef.current.focus();
         document.execCommand('foreColor', false, colorHex);
         handleInput();
         updateSelState();
@@ -226,23 +331,8 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                     <Italic className="w-3.5 h-3.5" />
                 </button>
 
-                {/* Color Picker for Selection */}
-                <div 
-                    className="relative overflow-hidden h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer flex-shrink-0" 
-                    title="Apply color to selected text"
-                    onMouseDown={(e) => {
-                        // Save selection BEFORE the color picker steals focus
-                        saveSelection();
-                        // Don't preventDefault here — we NEED the native picker to open
-                    }}
-                >
-                    <input
-                        type="color"
-                        onChange={e => applyColor(e.target.value)}
-                        className="absolute -top-2 -left-2 w-[150%] h-[150%] cursor-pointer"
-                        defaultValue={fieldColor || "#000000"}
-                    />
-                </div>
+                {/* Inline color palette — never steals focus */}
+                <ColorPickerButton applyColor={applyColor} fieldColor={fieldColor} />
 
                 <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-0.5" />
 
@@ -278,8 +368,8 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 spellCheck={false}
                 onInput={handleInput}
                 onKeyUp={updateSelState}
-                onMouseUp={() => { updateSelState(); saveSelection(); }}
-                onSelect={() => { updateSelState(); saveSelection(); }}
+                onMouseUp={updateSelState}
+                onSelect={updateSelState}
                 onKeyDown={preventNewline}
                 className="w-full min-h-[90px] px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#20242B] rounded-b-xl outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700 text-[13px] leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-300 dark:empty:before:text-slate-600"
                 data-placeholder="e.g. This is to certify that {Prefix} {Name}…"
