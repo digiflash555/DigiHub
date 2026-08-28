@@ -84,6 +84,7 @@ const eventSchema = new mongoose.Schema({
             variableColors: { type: mongoose.Schema.Types.Mixed, default: {} },
             variableFontStyles: { type: mongoose.Schema.Types.Mixed, default: {} },
             variableFontFamilies: { type: mongoose.Schema.Types.Mixed, default: {} },
+            variableUnderlines: { type: mongoose.Schema.Types.Mixed, default: {} },
                 richText: { type: mongoose.Schema.Types.Mixed, default: null },
             underlineVariables: Boolean,
             width: Number,
