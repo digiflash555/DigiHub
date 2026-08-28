@@ -59,6 +59,14 @@ const segmentsToHTML = (segs) => {
     }).join('');
 };
 
+/** Convert rgb(r,g,b) produced by execCommand('foreColor') back to #rrggbb hex */
+const rgbToHex = (color) => {
+    if (!color || color.startsWith('#')) return color;
+    const m = color.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (!m) return color;
+    return '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+};
+
 /** Parse contenteditable innerHTML → richText segments array */
 const htmlToSegments = (html) => {
     const div = document.createElement('div');
@@ -83,8 +91,8 @@ const htmlToSegments = (html) => {
             let b = bold, it = italic, c = color;
             if (tag === 'b' || tag === 'strong') b = true;
             if (tag === 'i' || tag === 'em') it = true;
-            if (tag === 'font' && node.color) c = node.color;
-            if (node.style && node.style.color) c = node.style.color;
+            if (tag === 'font' && node.color) c = rgbToHex(node.color);
+            if (node.style && node.style.color) c = rgbToHex(node.style.color);
             // Treat block breaks as a space
             if (tag === 'br' || tag === 'div' || tag === 'p') {
                 raw.push({ text: ' ', style: 'normal' });
@@ -120,6 +128,7 @@ const getInitialRichText = (field) => {
 const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) => {
     const divRef = useRef(null);
     const mounted = useRef(false);
+    const savedSelRef = useRef(null);   // stores the saved Selection range
     const [selBold, setSelBold] = useState(false);
     const [selItalic, setSelItalic] = useState(false);
 
@@ -141,6 +150,23 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
         setSelItalic(document.queryCommandState('italic'));
     };
 
+    /** Save the current selection range so we can restore it after focus loss */
+    const saveSelection = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            savedSelRef.current = sel.getRangeAt(0).cloneRange();
+        }
+    };
+
+    /** Restore the saved selection range into the editor */
+    const restoreSelection = () => {
+        if (!savedSelRef.current) return;
+        divRef.current.focus();
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedSelRef.current);
+    };
+
     // Use onMouseDown + preventDefault so the editor keeps focus when clicking toolbar
     const applyFormat = (cmd) => {
         divRef.current.focus();
@@ -150,7 +176,7 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
     };
 
     const applyColor = (colorHex) => {
-        divRef.current.focus();
+        restoreSelection();  // put selection back before applying
         document.execCommand('foreColor', false, colorHex);
         handleInput();
         updateSelState();
@@ -204,10 +230,15 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 <div 
                     className="relative overflow-hidden h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer flex-shrink-0" 
                     title="Apply color to selected text"
+                    onMouseDown={(e) => {
+                        // Save selection BEFORE the color picker steals focus
+                        saveSelection();
+                        // Don't preventDefault here — we NEED the native picker to open
+                    }}
                 >
                     <input
                         type="color"
-                        onChange={e => { e.preventDefault(); applyColor(e.target.value); }}
+                        onChange={e => applyColor(e.target.value)}
                         className="absolute -top-2 -left-2 w-[150%] h-[150%] cursor-pointer"
                         defaultValue={fieldColor || "#000000"}
                     />
@@ -247,8 +278,8 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 spellCheck={false}
                 onInput={handleInput}
                 onKeyUp={updateSelState}
-                onMouseUp={updateSelState}
-                onSelect={updateSelState}
+                onMouseUp={() => { updateSelState(); saveSelection(); }}
+                onSelect={() => { updateSelState(); saveSelection(); }}
                 onKeyDown={preventNewline}
                 className="w-full min-h-[90px] px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#20242B] rounded-b-xl outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700 text-[13px] leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-300 dark:empty:before:text-slate-600"
                 data-placeholder="e.g. This is to certify that {Prefix} {Name}…"
