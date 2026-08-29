@@ -86,6 +86,10 @@ exports.getEventRecipients = async (req, res) => {
             .populate('participant', 'email username role');
         const participants = [...new Set(regs.map(r => r.participant?.email).filter(Boolean))];
 
+        // Attended participants
+        const attendedRegs = regs.filter(r => r.attendanceStatus === true);
+        const attendedParticipants = [...new Set(attendedRegs.map(r => r.participant?.email).filter(Boolean))];
+
         // Approved volunteers
         const volApps = await VolunteerApplication.find({ event: eventId, status: 'Approved' })
             .populate('applicant', 'email username');
@@ -112,6 +116,7 @@ exports.getEventRecipients = async (req, res) => {
             eventTitle: event.title,
             groups: {
                 'Registered Participants': { emails: participants, count: participants.length },
+                'Attended Participants':   { emails: attendedParticipants, count: attendedParticipants.length },
                 'Event Volunteers':        { emails: volunteers,    count: volunteers.length },
                 'Faculty':                 { emails: faculty,       count: faculty.length },
                 'Event Coordinators':      { emails: coordinators,  count: coordinators.length },
