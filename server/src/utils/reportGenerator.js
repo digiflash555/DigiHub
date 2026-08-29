@@ -397,8 +397,8 @@ const generatePDFReport = async (registrations, event, options = {}) => {
     }
 
     const tableColumn = isAttendance 
-        ? ['S.No', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Signature of the student']
-        : ['S.No', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Email', 'Contact Number'];
+        ? ['S.No', 'Reg ID', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Signature of the student']
+        : ['S.No', 'Reg ID', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Email', 'Contact Number'];
 
     let tableRows = [];
     const signaturesList = [];
@@ -412,6 +412,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
 
             const rowData = [
                 (index + 1).toString(),
+                reg.registrationId || 'N/A',
                 participant.registrationNumber || 'N/A',
                 participant.username || 'N/A',
                 classDept
@@ -451,6 +452,7 @@ const generatePDFReport = async (registrations, event, options = {}) => {
                     : (participant.yearAndDept || participant.department || '-');
 
                 const rowData = [
+                    reg.registrationId || 'N/A',
                     participant.registrationNumber || 'N/A',
                     participant.username || 'N/A',
                     classDept
@@ -492,40 +494,44 @@ const generatePDFReport = async (registrations, event, options = {}) => {
         styles: { fontSize: 8, cellPadding: 4, verticalAlign: 'middle', halign: 'center' },
         columnStyles: isTeamEvent ? (
             isAttendance ? {
-                0: { halign: 'center', cellWidth: 15 },
-                1: { halign: 'center', cellWidth: 35 },
-                2: { halign: 'center', cellWidth: 50 },
-                3: { halign: 'center', cellWidth: 40 },
-                4: { halign: 'center', cellWidth: 40, minCellHeight: 18 }
+                0: { halign: 'center', cellWidth: 10 },
+                1: { halign: 'center', cellWidth: 32 },
+                2: { halign: 'center', cellWidth: 25 },
+                3: { halign: 'center', cellWidth: 45 },
+                4: { halign: 'center', cellWidth: 33 },
+                5: { halign: 'center', cellWidth: 35, minCellHeight: 18 }
             } : {
-                0: { halign: 'center', cellWidth: 12 },
-                1: { halign: 'center', cellWidth: 25 },
-                2: { halign: 'center', cellWidth: 45 },
+                0: { halign: 'center', cellWidth: 10 },
+                1: { halign: 'center', cellWidth: 30 },
+                2: { halign: 'center', cellWidth: 23 },
                 3: { halign: 'center', cellWidth: 35 },
-                4: { halign: 'center', cellWidth: 35 },
-                5: { halign: 'center', cellWidth: 28 }
+                4: { halign: 'center', cellWidth: 28 },
+                5: { halign: 'center', cellWidth: 32 },
+                6: { halign: 'center', cellWidth: 22 }
             }
         ) : (
             isAttendance ? {
-                0: { halign: 'center', cellWidth: 15 },
-                1: { halign: 'center', cellWidth: 35 },
-                2: { halign: 'center', cellWidth: 50 },
-                3: { halign: 'center', cellWidth: 40 },
-                4: { halign: 'center', cellWidth: 40, minCellHeight: 18 }
+                0: { halign: 'center', cellWidth: 10 },
+                1: { halign: 'center', cellWidth: 32 },
+                2: { halign: 'center', cellWidth: 25 },
+                3: { halign: 'center', cellWidth: 45 },
+                4: { halign: 'center', cellWidth: 33 },
+                5: { halign: 'center', cellWidth: 35, minCellHeight: 18 }
             } : {
-                0: { halign: 'center', cellWidth: 12 },
-                1: { halign: 'center', cellWidth: 25 },
-                2: { halign: 'center', cellWidth: 45 },
+                0: { halign: 'center', cellWidth: 10 },
+                1: { halign: 'center', cellWidth: 30 },
+                2: { halign: 'center', cellWidth: 23 },
                 3: { halign: 'center', cellWidth: 35 },
-                4: { halign: 'center', cellWidth: 35 },
-                5: { halign: 'center', cellWidth: 28 }
+                4: { halign: 'center', cellWidth: 28 },
+                5: { halign: 'center', cellWidth: 32 },
+                6: { halign: 'center', cellWidth: 22 }
             }
         ),
         didDrawPage: (data) => {
             // Header is already drawn manually on page 1
         },
         didDrawCell: (data) => {
-            if (isAttendance && data.section === 'body' && data.column.index === 4) {
+            if (isAttendance && data.section === 'body' && data.column.index === 5) {
                 const sigObj = signatureImages[data.row.index];
                 if (sigObj && sigObj.data) {
                     try {
