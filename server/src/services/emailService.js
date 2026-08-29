@@ -1,6 +1,8 @@
 const https = require('https');
 const EmailLog = require('../models/EmailLog');
 const EmailTemplate = require('../models/EmailTemplate');
+const User = require('../models/User');
+const Event = require('../models/Event');
 
 class EmailService {
     /**
@@ -179,10 +181,75 @@ class EmailService {
     }
 
     /**
-     * Send to a large list of recipients in BCC batches of 50.
+     * Send to a large list of recipients in BCC batches of 50 or individually if templates contain variables.
      * Returns { sentCount, failedCount }.
      */
-    async processBulkEmail(recipients, subject, body, attachments, recipientGroups) {
+    async processBulkEmail(recipients, subject, body, attachments, recipientGroups, eventId = null) {
+        const hasVariables = (subject + body).includes('{{');
+
+        if (hasVariables) {
+            let event = null;
+            if (eventId) {
+                try {
+                    event = await Event.findById(eventId);
+                } catch (err) {
+                    console.error('[EmailService] Failed to load event for variables:', err.message);
+                }
+            }
+
+            // Look up all recipient users by email
+            let userMap = new Map();
+            try {
+                const users = await User.find({ email: { $in: recipients } }).select('email username');
+                users.forEach(u => {
+                    if (u.email) userMap.set(u.email.toLowerCase(), u.username);
+                });
+            } catch (err) {
+                console.error('[EmailService] Error fetching recipient details:', err.message);
+            }
+
+            let sentCount   = 0;
+            let failedCount = 0;
+
+            for (const email of recipients) {
+                const username = userMap.get(email.toLowerCase()) || email.split('@')[0];
+                const variables = {
+                    name: username,
+                    username: username,
+                    email: email,
+                    eventTitle: event?.title || '',
+                    eventDate: event?.eventDate ? new Date(event.eventDate).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '',
+                    venue: event?.venue || '',
+                    category: event?.category || '',
+                };
+
+                const compiledSubject = this.compileTemplate(subject, variables);
+                const compiledBody    = this.compileTemplate(body, variables);
+
+                try {
+                    await this.sendEmail({
+                        to:             email,
+                        subject:        compiledSubject,
+                        body:           compiledBody,
+                        attachments,
+                        type:           'Manual',
+                        recipientGroups,
+                        eventId,
+                    });
+                    sentCount++;
+                } catch (err) {
+                    failedCount++;
+                    console.error(`[EmailService] Personalized email to ${email} failed:`, err.message);
+                }
+
+                // Small throttle to avoid hitting Brevo API burst limits
+                await new Promise(res => setTimeout(res, 150));
+            }
+
+            return { sentCount, failedCount };
+        }
+
+        // Fast BCC batching if no {{ variables exist
         const BATCH_SIZE = 50;
         const DELAY_MS   = 1000; // 1 s between batches — respects Brevo rate limits
 
@@ -200,6 +267,7 @@ class EmailService {
                     attachments,
                     type:           'Manual',
                     recipientGroups,
+                    eventId,
                 });
                 sentCount += batch.length;
             } catch (err) {
