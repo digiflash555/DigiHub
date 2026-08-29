@@ -257,7 +257,7 @@ const resolveRecipients = async (groups) => {
 
 exports.sendManualEmail = async (req, res) => {
     try {
-        const { recipientGroups = [], specificUsers = [], cc = [], bcc = [], subject, body, attachments, scheduledDate } = req.body;
+        const { recipientGroups = [], specificUsers = [], cc = [], bcc = [], subject, body, attachments, scheduledDate, eventId } = req.body;
         
         // Resolve group emails
         let allBcc = [...bcc];
@@ -269,12 +269,12 @@ exports.sendManualEmail = async (req, res) => {
 
         if (scheduledDate) {
             const scheduled = await ScheduledEmail.create({
-                subject, body, attachments, recipientGroups, cc, bcc: allBcc, scheduledDate
+                subject, body, attachments, recipientGroups, cc, bcc: allBcc, scheduledDate, eventId
             });
             return res.json({ message: 'Email scheduled successfully!', scheduled });
         } else {
             // Send now
-            emailService.processBulkEmail(allBcc, subject, body, attachments, recipientGroups);
+            emailService.processBulkEmail(allBcc, subject, body, attachments, recipientGroups, eventId);
             res.json({ message: `Email queued for sending to ${allBcc.length} recipients.` });
         }
     } catch (error) {
