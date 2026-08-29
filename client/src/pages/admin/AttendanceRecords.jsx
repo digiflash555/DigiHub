@@ -376,7 +376,7 @@ const AttendanceRecords = () => {
             drawHeader(doc);
 
             // 2. Attendance Table setup
-            const head = [['S.No', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Signature of the student']];
+            const head = [['S.No', 'Reg ID', 'Roll Number', 'Name of the Student', 'Dept/Class', 'Signature of the student']];
 
             let body = [];
             const sortedRecordsForTable = [];
@@ -392,6 +392,7 @@ const AttendanceRecords = () => {
 
                     return [
                         (index + 1).toString(),
+                        reg.registrationId || 'N/A',
                         participant.registrationNumber || '-',
                         participant.username || 'N/A',
                         classDept,
@@ -425,6 +426,7 @@ const AttendanceRecords = () => {
                             : (participant.yearAndDept || participant.department || '-');
 
                         const rowData = [
+                            reg.registrationId || 'N/A',
                             participant.registrationNumber || '-',
                             participant.username || 'N/A',
                             classDept,
@@ -471,17 +473,18 @@ const AttendanceRecords = () => {
                 headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', halign: 'center' },
                 styles: { fontSize: 8, cellPadding: 4, verticalAlign: 'middle', halign: 'center' },
                 columnStyles: {
-                    0: { halign: 'center', cellWidth: 15 },
-                    1: { halign: 'center', cellWidth: 35 },
-                    2: { halign: 'center', cellWidth: 50 },
-                    3: { halign: 'center', cellWidth: 40 },
-                    4: { halign: 'center', cellWidth: 40, minCellHeight: 18 }
+                    0: { halign: 'center', cellWidth: 10 },
+                    1: { halign: 'center', cellWidth: 32 },
+                    2: { halign: 'center', cellWidth: 25 },
+                    3: { halign: 'center', cellWidth: 45 },
+                    4: { halign: 'center', cellWidth: 33 },
+                    5: { halign: 'center', cellWidth: 35, minCellHeight: 18 }
                 },
                 didDrawPage: () => {
                     // Header is already drawn manually on page 1
                 },
                 didDrawCell: (data) => {
-                    if (data.section === 'body' && data.column.index === 4) {
+                    if (data.section === 'body' && data.column.index === 5) {
                         const sigData = signaturesList[data.row.index];
                         if (sigData) {
                             try {
