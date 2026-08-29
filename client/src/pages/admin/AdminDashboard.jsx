@@ -80,6 +80,7 @@ const AdminDashboard = () => {
                 const p = rec.participant || {};
                 rows.push([
                     sno++,
+                    rec.registrationId || 'N/A',
                     p.username || rec.formData?.name || '',
                     p.registrationNumber || rec.formData?.rollNumber || '',
                     p.yearAndDept || rec.formData?.year || '',
@@ -94,7 +95,7 @@ const AdminDashboard = () => {
             doc.text(`Registrations: ${eventName}`, 14, 20);
             autoTable(doc, {
                 startY: 30,
-                head: [['S.No', 'Name', 'Roll No.', 'Year/Dept', 'Department', 'Section', 'Phone', 'Email']],
+                head: [['S.No', 'Registration ID', 'Name', 'Roll No.', 'Year/Dept', 'Department', 'Section', 'Phone', 'Email']],
                 body: rows,
                 theme: 'grid',
                 styles: { fontSize: 8, cellPadding: 2 },
@@ -118,6 +119,7 @@ const AdminDashboard = () => {
                 const p = rec.participant || {};
                 rows.push({
                     S_No: sno++,
+                    Registration_ID: rec.registrationId || 'N/A',
                     Name: p.username || rec.formData?.name || '',
                     Roll_No: p.registrationNumber || rec.formData?.rollNumber || '',
                     Year_Dept: p.yearAndDept || rec.formData?.year || '',
@@ -150,6 +152,7 @@ const AdminDashboard = () => {
                 const p = rec.participant || {};
                 rows.push([
                     sno++,
+                    rec.registrationId || 'N/A',
                     p.username || '',
                     p.registrationNumber || '',
                     p.yearAndDept || '',
@@ -164,7 +167,7 @@ const AdminDashboard = () => {
             doc.text('All Registrations Report', 14, 20);
             autoTable(doc, {
                 startY: 30,
-                head: [['S.No', 'Name', 'Roll No.', 'Year/Dept', 'Department', 'Section', 'Phone', 'Email']],
+                head: [['S.No', 'Registration ID', 'Name', 'Roll No.', 'Year/Dept', 'Department', 'Section', 'Phone', 'Email']],
                 body: rows,
                 theme: 'grid',
                 styles: { fontSize: 8, cellPadding: 2 },
@@ -189,6 +192,7 @@ const AdminDashboard = () => {
                 const p = rec.participant || {};
                 rows.push({
                     S_No: sno++,
+                    Registration_ID: rec.registrationId || 'N/A',
                     Name: p.username || '',
                     Roll_No: p.registrationNumber || '',
                     Year_Dept: p.yearAndDept || '',
