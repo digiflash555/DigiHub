@@ -150,6 +150,7 @@ const ComposeEmail = () => {
                 const resolvedEmails = resolveSelectedEmails();
                 payload = {
                     subject, body,
+                    eventId: selectedEventId || null,
                     recipientGroups: activeGroupLabels,
                     specificUsers:   resolvedEmails,
                     cc: cc ? cc.split(',').map(x => x.trim()) : [],
@@ -159,6 +160,7 @@ const ComposeEmail = () => {
             } else {
                 payload = {
                     subject, body,
+                    eventId: null,
                     recipientGroups: activeGroupLabels,
                     specificUsers:   specificEmails,
                     cc: cc ? cc.split(',').map(x => x.trim()) : [],
@@ -196,10 +198,27 @@ const ComposeEmail = () => {
         }
     };
 
+    const insertVariable = (varName) => {
+        const tag = `{{${varName}}}`;
+        setBody(prev => prev + tag);
+        toast.success(`Inserted ${tag} into email body`);
+    };
+
     const eventsStatusColor = (s) => ({
         Upcoming: 'text-emerald-600', Ongoing: 'text-amber-600',
         Completed: 'text-indigo-500', Draft: 'text-slate-400', Cancelled: 'text-red-400',
     }[s] || 'text-slate-400');
+
+    const availableVariables = [
+        { name: 'name', label: 'Recipient Name' },
+        { name: 'email', label: 'Recipient Email' },
+        ...(selectedEventId ? [
+            { name: 'eventTitle', label: 'Event Title' },
+            { name: 'eventDate', label: 'Event Date' },
+            { name: 'venue', label: 'Event Venue' },
+            { name: 'category', label: 'Event Category' }
+        ] : [])
+    ];
 
     return (
         <div className="space-y-6 pb-6">
@@ -383,11 +402,34 @@ const ComposeEmail = () => {
                 </div>
             </div>
 
+            {/* ── Dynamic Personalization Variables Bar ── */}
+            <div className="p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 space-y-2">
+                <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-indigo-500" />
+                    <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 uppercase tracking-wider">
+                        Personalization Variables (Click to insert into body)
+                    </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {availableVariables.map(v => (
+                        <button
+                            key={v.name}
+                            type="button"
+                            onClick={() => insertVariable(v.name)}
+                            className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 text-xs font-mono font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm flex items-center gap-1.5"
+                        >
+                            <span>{`{{${v.name}}}`}</span>
+                            <span className="text-[10px] text-slate-400 font-sans">({v.label})</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* ── Subject ── */}
             <div>
                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest block mb-1">Subject *</label>
                 <input value={subject} onChange={e => setSubject(e.target.value)}
-                    placeholder="Email Subject"
+                    placeholder="Email Subject (e.g. Hello {{name}}, update regarding {{eventTitle}})"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-300 outline-none"
                 />
             </div>
