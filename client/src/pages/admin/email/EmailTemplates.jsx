@@ -29,7 +29,10 @@ const TRIGGER_LABELS = {
     SUPPORT_NEW_TICKET:       { label: '📬 User Care — New Ticket (to Members)', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
     SUPPORT_STATUS_UPDATE:    { label: '🔔 User Care — Status Update (to User)', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
     BIRTHDAY_WISH:            { label: '🎂 Birthday Wishes (Auto Daily)',         color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
+    WINNER_LIKE:              { label: '❤️ Winner Liked — Achievement Alert',    color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' },
+    WINNER_COMMENT:           { label: '💬 Winner Commented — Achievement Alert',color: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-300' },
 };
+
 
 const TemplateCard = ({ tmpl, onSave, eventId }) => {
     const [expanded, setExpanded] = useState(false);
@@ -236,6 +239,44 @@ const EmailTemplates = () => {
 
                             <p className="text-xs text-rose-500/70 dark:text-rose-400/60 mt-3 font-medium">
                                 💡 Tip: Toggle the <strong>🎂 Birthday Wishes</strong> template below to enable or disable this feature. Edit the template to customise the message.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Winner Notification Auto-Email Feature Banner ── */}
+            {!selectedEventId && (
+                <div className="relative overflow-hidden rounded-2xl border border-yellow-200 dark:border-yellow-800/50 bg-gradient-to-br from-yellow-50 via-amber-50 to-lime-50 dark:from-yellow-950/30 dark:via-amber-950/20 dark:to-lime-950/30 p-5">
+                    <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-yellow-200/40 dark:bg-yellow-700/20 blur-2xl pointer-events-none" />
+                    <div className="absolute -bottom-4 right-12 w-20 h-20 rounded-full bg-lime-200/40 dark:bg-lime-700/20 blur-xl pointer-events-none" />
+                    <div className="relative flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-lg shadow-yellow-300/40 dark:shadow-yellow-900/40 text-2xl">
+                            🏆
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h3 className="font-black text-yellow-800 dark:text-yellow-200 text-base">Winner Achievement Notifications — Auto Email</h3>
+                                <span className="px-2 py-0.5 rounded-full bg-yellow-500 text-white text-[10px] font-black tracking-widest uppercase">Active</span>
+                            </div>
+                            <p className="text-sm text-yellow-700/80 dark:text-yellow-300/80 mb-3 leading-relaxed">
+                                When a user <strong>likes</strong> or <strong>comments</strong> on a winner's achievement on the Wall of Winners page,
+                                the system automatically emails the winner — or all team members for team events.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                {[
+                                    { emoji: '❤️', text: 'WINNER_LIKE: sent when someone likes a winner' },
+                                    { emoji: '💬', text: 'WINNER_COMMENT: sent when someone comments' },
+                                    { emoji: '👥', text: 'Sent to all team members for team events' },
+                                ].map(({ emoji, text }) => (
+                                    <div key={text} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800/40">
+                                        <span className="text-sm flex-shrink-0">{emoji}</span>
+                                        <span className="text-xs font-bold text-yellow-700 dark:text-yellow-300">{text}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-xs text-yellow-500/70 dark:text-yellow-400/60 mt-3 font-medium">
+                                💡 Tip: Toggle the <strong>❤️ Winner Liked</strong> and <strong>💬 Winner Commented</strong> templates below to enable or disable these. Variables: <code>liker_name</code>, <code>commenter_name</code>, <code>event_title</code>, <code>comment_text</code>.
                             </p>
                         </div>
                     </div>
