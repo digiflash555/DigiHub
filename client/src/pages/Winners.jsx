@@ -279,10 +279,10 @@ const Winners = () => {
     }).filter(ev => ev.displayWinners.length > 0);
 
     const posClass = (pos) => ({
-        1: 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200',
-        2: 'bg-gradient-to-r from-slate-50 to-gray-100 border-slate-200 dark:border-slate-700',
-        3: 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
-    }[pos] || 'bg-slate-50 border-transparent dark:bg-slate-800/40');
+        1: 'bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-yellow-200 dark:border-yellow-700/40',
+        2: 'bg-gradient-to-r from-slate-50 to-gray-100 dark:from-slate-800/60 dark:to-slate-700/40 border-slate-200 dark:border-slate-600/50',
+        3: 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-700/40',
+    }[pos] || 'bg-slate-50 dark:bg-slate-800/40 border-transparent');
 
     const posGlow = (pos) => ({
         1: 'bg-yellow-400',
@@ -303,9 +303,9 @@ const Winners = () => {
                 <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-yellow-50 border border-yellow-100 text-yellow-700 font-black text-sm uppercase tracking-widest shadow-sm"
+                    className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-100 dark:border-yellow-700/50 text-yellow-700 dark:text-yellow-400 font-black text-sm uppercase tracking-widest shadow-sm"
                 >
-                    <Trophy className="w-5 h-5 fill-yellow-100" />
+                    <Trophy className="w-5 h-5 fill-yellow-100 dark:fill-yellow-800" />
                     Celebrating Excellence
                 </motion.div>
                 <h1 className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter">
@@ -442,8 +442,8 @@ const Winners = () => {
                                                                 {commentsCount > 0 && commentsCount}
                                                             </button>
                                                             {pos === 1 && (
-                                                                <div className="hidden sm:flex w-10 h-10 bg-yellow-100 text-yellow-600 items-center justify-center rounded-full animate-bounce shadow-sm">
-                                                                    <Trophy className="w-5 h-5 fill-yellow-200" />
+                                                                <div className="hidden sm:flex w-10 h-10 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400 items-center justify-center rounded-full animate-bounce shadow-sm">
+                                                                    <Trophy className="w-5 h-5 fill-yellow-200 dark:fill-yellow-700" />
                                                                 </div>
                                                             )}
                                                         </div>
