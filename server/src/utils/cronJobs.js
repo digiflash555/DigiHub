@@ -104,15 +104,19 @@ const startCronJobs = () => {
         }
     });
 
-    // ── Birthday Wishes ── runs every day at 08:00 AM ────────────────────────
+    // ── Birthday Wishes ── runs every day at 08:00 AM IST ────────────────────────
     cron.schedule('0 8 * * *', async () => {
         try {
             console.log('[Cron] Running birthday wishes job...');
             const emailService = require('../services/emailService');
 
             const now = new Date();
-            const todayMonth = now.getMonth() + 1; // 1-based
-            const todayDay   = now.getDate();
+            // Convert current time to IST to get the correct today's month and day
+            const istString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+            const istDate = new Date(istString);
+            
+            const todayMonth = istDate.getMonth() + 1; // 1-based
+            const todayDay   = istDate.getDate();
 
             // Find all users whose birth month & day match today
             const birthdayUsers = await User.find({
@@ -120,10 +124,14 @@ const startCronJobs = () => {
             }).select('username email dateOfBirth');
 
             const todayBirthdays = birthdayUsers.filter(u => {
-                const dob = new Date(u.dateOfBirth);
+                if (!u.dateOfBirth) return false;
+                // Convert stored date to IST to match the original intended date
+                const dobStr = new Date(u.dateOfBirth).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+                const dobIst = new Date(dobStr);
+                
                 return (
-                    dob.getMonth() + 1 === todayMonth &&
-                    dob.getDate()      === todayDay
+                    dobIst.getMonth() + 1 === todayMonth &&
+                    dobIst.getDate()      === todayDay
                 );
             });
 
@@ -160,6 +168,9 @@ const startCronJobs = () => {
         } catch (error) {
             console.error('[Cron] Error in birthday wishes cron job:', error);
         }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Kolkata"
     });
 };
 
