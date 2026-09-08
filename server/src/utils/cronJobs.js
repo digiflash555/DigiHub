@@ -111,28 +111,26 @@ const startCronJobs = () => {
             const emailService = require('../services/emailService');
 
             const now = new Date();
-            // Convert current time to IST to get the correct today's month and day
-            const istString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-            const istDate = new Date(istString);
-            
-            const todayMonth = istDate.getMonth() + 1; // 1-based
-            const todayDay   = istDate.getDate();
+            // Securely get current month/day in IST (UTC + 5:30)
+            const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+            const todayMonth = istTime.getUTCMonth(); // 0-based
+            const todayDay = istTime.getUTCDate();
 
-            // Find all users whose birth month & day match today
+            // Find all users with a dateOfBirth
             const birthdayUsers = await User.find({
                 dateOfBirth: { $exists: true, $ne: null }
             }).select('username email dateOfBirth');
 
             const todayBirthdays = birthdayUsers.filter(u => {
                 if (!u.dateOfBirth) return false;
-                // Convert stored date to IST to match the original intended date
-                const dobStr = new Date(u.dateOfBirth).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-                const dobIst = new Date(dobStr);
+                const dob = new Date(u.dateOfBirth);
                 
-                return (
-                    dobIst.getMonth() + 1 === todayMonth &&
-                    dobIst.getDate()      === todayDay
-                );
+                // If DOB is stored as UTC midnight (standard for date inputs), getUTCMonth/Date will accurately reflect it.
+                // We also check getMonth/getDate to account for local timezone offsets if it was saved differently.
+                const matchesUTC = dob.getUTCMonth() === todayMonth && dob.getUTCDate() === todayDay;
+                const matchesLocal = dob.getMonth() === todayMonth && dob.getDate() === todayDay;
+                
+                return matchesUTC || matchesLocal;
             });
 
             if (todayBirthdays.length === 0) {
@@ -146,7 +144,7 @@ const startCronJobs = () => {
             const tmpl = await EmailTemplate.findOne({ trigger: 'BIRTHDAY_WISH', enabled: true });
 
             for (const user of todayBirthdays) {
-                const variables = { user_name: user.username };
+                const variables = { user_name: user.username, username: user.username, name: user.username };
                 const subject = tmpl
                     ? emailService.compileTemplate(tmpl.subject, variables)
                     : `🎂 Happy Birthday, ${user.username}! Warm Wishes from DigiFlash Association of CSE`;
@@ -155,15 +153,20 @@ const startCronJobs = () => {
                     : `<p>Dear <strong>${user.username}</strong>,</p><p>Wishing you a very Happy Birthday! 🎉</p><p>Regards,<br/>DigiFlash Association of CSE</p>`;
 
                 try {
-                    await emailService._sendViaBrevoAPI({
-                        to:      user.email,
+                    await emailService.sendEmail({
+                        to: user.email,
                         subject,
-                        htmlBody
+                        body: htmlBody,
+                        type: 'Automatic',
+                        templateId: tmpl ? tmpl._id : null
                     });
                     console.log(`[Cron] 🎂 Birthday wish sent to ${user.username} <${user.email}>`);
                 } catch (err) {
                     console.error(`[Cron] Failed to send birthday wish to ${user.email}:`, err.message);
                 }
+                
+                // Small throttle to avoid hitting API burst limits
+                await new Promise(res => setTimeout(res, 200));
             }
         } catch (error) {
             console.error('[Cron] Error in birthday wishes cron job:', error);
