@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Calendar, MapPin, Clock, Users, ArrowRight, Share2, Shield, Info, Search, X, Handshake, Loader2, Mail, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { downloadEventPass } from '../utils/eventPassUtils';
 
 const EventDetails = () => {
     const { id } = useParams();
@@ -156,13 +157,45 @@ const EventDetails = () => {
                 const res = await axios.post(`/api/registrations`, payload, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                toast.success('Registration successful!');
+                toast.success('🎉 Registration successful! Downloading your event pass...');
                 setShowRegForm(false);
+                // Auto-download event pass
+                try {
+                    await downloadEventPass({
+                        event: {
+                            ...event,
+                            isTeamEvent: event.participationType === 'Team'
+                        },
+                        participant: user,
+                        qrCode: res.data.qrCode,
+                        registrationId: res.data.registrationId,
+                        teamName: teamName || res.data.teamName
+                    });
+                } catch (passErr) {
+                    console.warn('Event pass download failed:', passErr);
+                    toast('Could not auto-download pass. Download it from your Dashboard.', { icon: '⚠️' });
+                }
                 navigate('/dashboard');
             } else {
                 const res = await axios.post(`/api/registrations`, finalPayload);
-                toast.success('Registration successful!');
+                toast.success('🎉 Registration successful! Downloading your event pass...');
                 setShowRegForm(false);
+                // Auto-download event pass
+                try {
+                    await downloadEventPass({
+                        event: {
+                            ...event,
+                            isTeamEvent: event.participationType === 'Team'
+                        },
+                        participant: user,
+                        qrCode: res.data.qrCode,
+                        registrationId: res.data.registrationId,
+                        teamName: teamName || res.data.teamName
+                    });
+                } catch (passErr) {
+                    console.warn('Event pass download failed:', passErr);
+                    toast('Could not auto-download pass. Download it from your Dashboard.', { icon: '⚠️' });
+                }
                 navigate('/dashboard');
             }
         } catch (error) {
