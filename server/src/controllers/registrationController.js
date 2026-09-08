@@ -137,6 +137,17 @@ exports.registerForEvent = async (req, res, next) => {
                 throw new Error('Please provide a team name');
             }
 
+            const escapedTeamName = teamName.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const existingTeam = await Team.findOne({
+                event: eventId,
+                name: { $regex: new RegExp('^' + escapedTeamName + '$', 'i') }
+            });
+
+            if (existingTeam) {
+                res.status(400);
+                throw new Error('Team name is already taken. Please choose a different one.');
+            }
+
             const totalSize = teamMembers.length + 1;
             if (totalSize < event.minTeamSize || totalSize > event.maxTeamSize) {
                 res.status(400);
