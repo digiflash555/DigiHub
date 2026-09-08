@@ -88,11 +88,13 @@ exports.createEvent = async (req, res, next) => {
                 const users = await User.find({ role: { $in: ['Participant', 'Student'] } }).select('email');
                 recipients = users.map(u => u.email).filter(Boolean);
             } else if (event.registrationRestrictionMode === 'Restrict by Class & Section' && event.allocations && event.allocations.length > 0) {
-                const orConditions = event.allocations.map(alloc => {
+                const orConditions = [];
+                event.allocations.forEach(alloc => {
+                    if (!alloc.yearAndDept) return;
                     const cond = { role: { $in: ['Participant', 'Student'] } };
-                    if (alloc.yearAndDept) cond.yearAndDept = alloc.yearAndDept;
+                    cond.yearAndDept = alloc.yearAndDept;
                     if (alloc.section && alloc.section !== 'All' && alloc.section !== 'Nil' && alloc.section !== '') cond.section = alloc.section;
-                    return cond;
+                    orConditions.push(cond);
                 });
                 
                 if (orConditions.length > 0) {
