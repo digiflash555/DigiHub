@@ -21,6 +21,17 @@ exports.createTeam = async (req, res, next) => {
             throw new Error('This event does not allow team participation');
         }
 
+        const escapedTeamName = name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const existingTeam = await Team.findOne({
+            event: eventId,
+            name: { $regex: new RegExp('^' + escapedTeamName + '$', 'i') }
+        });
+
+        if (existingTeam) {
+            res.status(400);
+            throw new Error('Team name is already taken. Please choose a different one.');
+        }
+
         const team = await Team.create({
             name,
             event: eventId,
