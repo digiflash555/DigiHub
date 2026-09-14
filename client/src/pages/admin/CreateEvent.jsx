@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { Plus, Trash2, Calendar, Clock, MapPin, Image as ImageIcon, Briefcase, Users, Layout, ArrowLeft, ChevronRight, Sparkles, Save, Eye, Settings, UserCheck, Lock, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import AdminHeader from '../../components/layout/AdminHeader';
+import AdminHeader from '../../components/layout/AdminHeader.jsx';
 
 
 const CreateEvent = () => {
