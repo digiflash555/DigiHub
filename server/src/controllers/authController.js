@@ -18,26 +18,31 @@ const generateToken = (id) => {
 };
 
 /**
- * Returns true if the given dateOfBirth falls on today's month & day
+ * Returns true if the given dateOfBirth falls on today's month & day in IST.
  * (year-agnostic — works for birthday regardless of birth year).
+ * Uses IST (UTC+5:30) to be consistent with the midnight birthday cron job.
  */
 const isTodayBirthday = (dateOfBirth) => {
     if (!dateOfBirth) return false;
-    const dob   = new Date(dateOfBirth);
-    const today = new Date();
+    const dob = new Date(dateOfBirth);
+    const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+    // Shift both dob and now into IST calendar space
+    const dobIST = new Date(dob.getTime() + istOffsetMs);
+    const nowIST = new Date(Date.now() + istOffsetMs);
     return (
-        dob.getMonth() === today.getMonth() &&
-        dob.getDate()  === today.getDate()
+        dobIST.getUTCMonth() === nowIST.getUTCMonth() &&
+        dobIST.getUTCDate() === nowIST.getUTCDate()
     );
 };
 
 /**
  * Fire a birthday wish email (fire-and-forget, never blocks the response).
+ * Sends to ALL roles — Participant, Association Member, Faculty, Admin, etc.
  */
 const sendBirthdayWish = (user) => {
     emailService.triggerAutomaticEmail(
         'BIRTHDAY_WISH',
-        { user_name: user.username },
+        { user_name: user.username, username: user.username, name: user.username },
         user.email,
         null,
         user._id
@@ -52,7 +57,7 @@ exports.register = async (req, res, next) => {
         // Support both multipart/form-data (with signature file) and plain JSON
         let parsedBody = req.body;
         if (req.body.data) {
-            try { parsedBody = JSON.parse(req.body.data); } catch (_) {}
+            try { parsedBody = JSON.parse(req.body.data); } catch (_) { }
         }
         const { username, email, password, registrationNumber, phone, bio, skills, dateOfBirth, signature, gender, yearAndDept, section, passoutYear, securityQuestions } = parsedBody;
 
@@ -80,7 +85,7 @@ exports.register = async (req, res, next) => {
             dateOfBirth: dateOfBirth || undefined,
             signature: req.file ? req.file.path : (signature || ''),
             gender: gender || 'Male',
-            yearAndDept: yearAndDept || 'I B.E. CSE',
+            yearAndDept: yearAndDept || 'II B.E. CSE',
             section: section || 'A',
             passoutYear: passoutYear || undefined,
             securityQuestions: securityQuestions || undefined,
@@ -129,8 +134,8 @@ exports.register = async (req, res, next) => {
 // @access  Private/Admin
 exports.createAssociationMember = async (req, res, next) => {
     try {
-        const { 
-            username, email, password, registrationNumber, 
+        const {
+            username, email, password, registrationNumber,
             phone, gender, yearAndDept, section, passoutYear, membershipStatus, role, associationRole, dateOfBirth
         } = req.body;
 
@@ -202,7 +207,7 @@ exports.updateMemberStatus = async (req, res, next) => {
 
         if (user && user.role === 'Association Member') {
             user.membershipStatus = membershipStatus;
-            
+
             if (membershipStatus === 'Alumni') {
                 user.role = 'Participant';
                 user.associationRole = '';
@@ -226,10 +231,10 @@ exports.moveAllToPastMembers = async (req, res, next) => {
     try {
         const result = await User.updateMany(
             { role: 'Association Member', membershipStatus: 'Present' },
-            { 
+            {
                 membershipStatus: 'Alumni',
                 role: 'Participant',
-                associationRole: '' 
+                associationRole: ''
             }
         );
         res.json({ message: `Successfully moved ${result.modifiedCount} members to Alumni` });
@@ -243,9 +248,9 @@ exports.moveAllToPastMembers = async (req, res, next) => {
 // @access  Private/Admin
 exports.createFaculty = async (req, res, next) => {
     try {
-        const { 
-            phone, gender, department, designation, 
-            role, assignedYear, assignedSection, bio, displayOrder 
+        const {
+            phone, gender, department, designation,
+            role, assignedYear, assignedSection, bio, displayOrder
         } = req.body;
 
         const userExists = await User.findOne({ email });
@@ -474,9 +479,9 @@ exports.updateUserById = async (req, res, next) => {
             throw new Error('User not found');
         }
 
-        const { 
-            username, email, role, registrationNumber, phone, 
-            gender, yearAndDept, section, passoutYear, employeeId, 
+        const {
+            username, email, role, registrationNumber, phone,
+            gender, yearAndDept, section, passoutYear, employeeId,
             department, designation, assignedYear, assignedSection,
             membershipStatus, associationRole, dateOfBirth, bio, displayOrder
         } = req.body;
@@ -656,8 +661,8 @@ exports.getPublicAssociationMembers = async (req, res, next) => {
             role: { $in: ['Admin', 'Association Member', 'Student Coordinator', 'Head of the Department', 'Faculty'] },
             membershipStatus: 'Present'
         })
-        .select('username role yearAndDept section designation profileImage bio associationRole displayOrder')
-        .sort({ role: 1, username: 1 });
+            .select('username role yearAndDept section designation profileImage bio associationRole displayOrder')
+            .sort({ role: 1, username: 1 });
         res.json(members);
     } catch (error) {
         next(error);
