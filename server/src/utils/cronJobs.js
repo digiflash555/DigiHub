@@ -104,47 +104,84 @@ const startCronJobs = () => {
         }
     });
 
-    // ── Birthday Wishes ── runs every day at 08:00 AM IST ────────────────────────
-    cron.schedule('0 8 * * *', async () => {
+    // ── Birthday Wishes ── runs every day at 12:00 AM (midnight) IST ─────────────
+    // Cron expression '0 0 * * *' with timezone 'Asia/Kolkata' fires at exactly
+    // midnight IST (00:00 IST = 18:30 UTC previous day).
+    cron.schedule('0 0 * * *', async () => {
         try {
-            console.log('[Cron] Running birthday wishes job...');
+            console.log('[Cron] Running birthday wishes job at midnight IST...');
             const emailService = require('../services/emailService');
 
-            const now = new Date();
-            // Securely get current month/day in IST (UTC + 5:30)
-            const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-            const todayMonth = istTime.getUTCMonth(); // 0-based
-            const todayDay = istTime.getUTCDate();
+            // Determine today's date in IST correctly.
+            // Because this cron runs with timezone: 'Asia/Kolkata', `new Date()` inside
+            // the callback is still UTC — we must derive the IST calendar date from UTC.
+            const nowUTC = new Date();
+            // IST = UTC + 5h 30m
+            const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+            const nowIST = new Date(nowUTC.getTime() + istOffsetMs);
+            // Use UTC accessors on the IST-shifted date to get the correct IST calendar values
+            const todayMonth = nowIST.getUTCMonth(); // 0-based
+            const todayDay   = nowIST.getUTCDate();
 
-            // Find all users with a dateOfBirth
-            const birthdayUsers = await User.find({
-                dateOfBirth: { $exists: true, $ne: null }
-            }).select('username email dateOfBirth');
+            console.log(`[Cron] Checking birthdays for IST date: month=${todayMonth + 1}, day=${todayDay}`);
 
-            const todayBirthdays = birthdayUsers.filter(u => {
-                if (!u.dateOfBirth) return false;
+            // Find all users that have a dateOfBirth stored
+            const allUsers = await User.find({
+                dateOfBirth: { $exists: true, $ne: null },
+                email:       { $exists: true, $ne: null }
+            }).select('username email dateOfBirth role');
+
+            // Filter users whose birthday (month+day) matches today in IST.
+            // DOBs are stored as UTC midnight (e.g. 2002-05-14T00:00:00.000Z).
+            // We compare only month & day — year is irrelevant.
+            const birthdayUsers = allUsers.filter(u => {
+                if (!u.dateOfBirth || !u.email) return false;
                 const dob = new Date(u.dateOfBirth);
-                
-                // If DOB is stored as UTC midnight (standard for date inputs), getUTCMonth/Date will accurately reflect it.
-                // We also check getMonth/getDate to account for local timezone offsets if it was saved differently.
-                const matchesUTC = dob.getUTCMonth() === todayMonth && dob.getUTCDate() === todayDay;
-                const matchesLocal = dob.getMonth() === todayMonth && dob.getDate() === todayDay;
-                
-                return matchesUTC || matchesLocal;
+                // Shift the stored UTC-midnight DOB by IST offset so we get the
+                // calendar date the user actually entered (avoids off-by-one on DOBs
+                // near midnight UTC caused by timezone differences).
+                const dobIST = new Date(dob.getTime() + istOffsetMs);
+                return dobIST.getUTCMonth() === todayMonth && dobIST.getUTCDate() === todayDay;
             });
 
-            if (todayBirthdays.length === 0) {
+            // Deduplicate by email (safety check)
+            const uniqueMap = new Map();
+            birthdayUsers.forEach(u => {
+                if (u.email && !uniqueMap.has(u.email.toLowerCase())) {
+                    uniqueMap.set(u.email.toLowerCase(), u);
+                }
+            });
+            const dedupedUsers = [...uniqueMap.values()];
+
+            if (dedupedUsers.length === 0) {
                 console.log('[Cron] No birthdays today.');
                 return;
             }
 
-            console.log(`[Cron] Sending birthday wishes to ${todayBirthdays.length} user(s)...`);
+            // Log a role breakdown so it's clear ALL roles are included
+            const roleBreakdown = dedupedUsers.reduce((acc, u) => {
+                const role = u.role || 'Unknown';
+                acc[role] = (acc[role] || 0) + 1;
+                return acc;
+            }, {});
+            console.log(`[Cron] 🎂 ${dedupedUsers.length} birthday(s) today — roles:`, JSON.stringify(roleBreakdown));
 
-            // Load the BIRTHDAY_WISH template once
+
+            // Load the BIRTHDAY_WISH template once (must have {{user_name}} placeholder)
             const tmpl = await EmailTemplate.findOne({ trigger: 'BIRTHDAY_WISH', enabled: true });
 
-            for (const user of todayBirthdays) {
-                const variables = { user_name: user.username, username: user.username, name: user.username };
+            // Send personalized email to each birthday user individually so that
+            // {{user_name}} is compiled per-recipient.
+            let sentCount   = 0;
+            let failedCount = 0;
+
+            for (const user of dedupedUsers) {
+                const variables = {
+                    user_name: user.username,
+                    username:  user.username,
+                    name:      user.username,
+                };
+
                 const subject = tmpl
                     ? emailService.compileTemplate(tmpl.subject, variables)
                     : `🎂 Happy Birthday, ${user.username}! Warm Wishes from DigiFlash Association of CSE`;
@@ -154,27 +191,32 @@ const startCronJobs = () => {
 
                 try {
                     await emailService.sendEmail({
-                        to: user.email,
+                        to:         user.email,
                         subject,
-                        body: htmlBody,
-                        type: 'Automatic',
-                        templateId: tmpl ? tmpl._id : null
+                        body:       htmlBody,
+                        type:       'Automatic',
+                        templateId: tmpl ? tmpl._id : null,
                     });
+                    sentCount++;
                     console.log(`[Cron] 🎂 Birthday wish sent to ${user.username} <${user.email}>`);
                 } catch (err) {
-                    console.error(`[Cron] Failed to send birthday wish to ${user.email}:`, err.message);
+                    failedCount++;
+                    console.error(`[Cron] ❌ Failed to send birthday wish to ${user.email}:`, err.message);
                 }
-                
-                // Small throttle to avoid hitting API burst limits
-                await new Promise(res => setTimeout(res, 200));
+
+                // Throttle: 300 ms between sends to respect Brevo API rate limits
+                await new Promise(res => setTimeout(res, 300));
             }
+
+            console.log(`[Cron] Birthday wishes complete — sent: ${sentCount}, failed: ${failedCount}`);
         } catch (error) {
             console.error('[Cron] Error in birthday wishes cron job:', error);
         }
     }, {
         scheduled: true,
-        timezone: "Asia/Kolkata"
+        timezone: 'Asia/Kolkata'   // node-cron interprets the schedule in this timezone
     });
+
 };
 
 module.exports = startCronJobs;
