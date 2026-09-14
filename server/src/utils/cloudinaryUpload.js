@@ -31,8 +31,10 @@ const createCloudinaryUpload = (folder, formats, maxMB = 5, prefix = '') => {
                 folder: `event_management/${folder}`,
                 resource_type: resourceType,
                 public_id: `${prefix}${Date.now()}-${Math.round(Math.random() * 1e9)}`,
-                // Keep original format, Cloudinary handles conversion
+                // Preserve original format and quality — no compression
                 format: undefined,
+                quality: resourceType === 'image' ? 100 : undefined,
+                flags: resourceType === 'image' ? 'preserve_transparency' : undefined,
             };
         },
     });
