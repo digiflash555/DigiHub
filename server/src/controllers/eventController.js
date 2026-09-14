@@ -49,7 +49,8 @@ const autoUpdateStatuses = async () => {
 };
 
 // Event banner upload — stored in Cloudinary under event_management/banners
-const upload = createCloudinaryUpload('banners', ['jpeg', 'jpg', 'png', 'gif', 'webp'], 1, 'event-banner-');
+// Allow up to 10 MB for banners so high-resolution images are accepted without quality loss
+const upload = createCloudinaryUpload('banners', ['jpeg', 'jpg', 'png', 'gif', 'webp'], 10, 'event-banner-');
 
 // @desc    Create new event
 // @route   POST /api/events
