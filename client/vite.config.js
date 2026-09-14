@@ -36,6 +36,7 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      external: [],
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
@@ -50,6 +51,9 @@ export default defineConfig({
             }
             if (id.includes('framer-motion')) {
               return 'vendor-motion';
+            }
+            if (id.includes('react-confetti')) {
+              return 'vendor-confetti';
             }
             return 'vendor'; // all other node_modules
           }
