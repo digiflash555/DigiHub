@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { Plus, Trash2, Calendar, Clock, MapPin, Image as ImageIcon, Briefcase, Users, Layout, ArrowLeft, ChevronRight, Sparkles, Save, Eye, Settings, UserCheck, Lock, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import AdminHeader from '../../components/layout/AdminHeader';
 
 
 const CreateEvent = () => {
@@ -336,41 +337,34 @@ const CreateEvent = () => {
 
     return (
         <div className="max-w-[95%] 2xl:max-w-[1600px] mx-auto space-y-8 pb-20 px-4">
-            {/* Premium Header */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-primary-600 via-indigo-600 to-violet-700 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl">
-                <div className="absolute inset-0 opacity-10" style={{backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}}></div>
-                <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                        <Link to="/admin" className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all border border-white/10">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <Sparkles className="w-4 h-4 text-amber-300" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-200">{id ? 'Edit Mode' : 'Create Mode'}</span>
-                            </div>
-                            <h1 className="text-3xl md:text-4xl font-black tracking-tight">{id ? 'Edit Event' : 'Create New Event'}</h1>
-                            <p className="text-indigo-200/80 text-sm mt-1 font-medium">Configure all event details and publish when ready</p>
-                        </div>
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => navigate('/admin')} className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl font-bold text-sm transition-all">
+            <AdminHeader
+                title={id ? 'Edit Event' : 'Create New Event'}
+                subtitle={id ? 'Update your event details, forms, and logistics below.' : 'Configure all event details, forms, and settings — publish when ready.'}
+                badge={id ? 'Edit Mode' : 'Create Mode'}
+                icon={Calendar}
+                backPath="/admin/dashboard"
+                actions={
+                    <>
+                        <button
+                            onClick={() => navigate('/admin/dashboard')}
+                            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-bold text-xs text-white transition-all"
+                        >
                             Cancel
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={isLoading}
-                            className="px-7 py-3 bg-white text-indigo-700 hover:bg-indigo-50 rounded-2xl font-black text-sm flex items-center gap-2 transition-all shadow-xl shadow-indigo-900/30 disabled:opacity-60"
+                            className="px-5 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-black text-xs flex items-center gap-2 transition-all shadow-lg shadow-indigo-900/30 disabled:opacity-60"
                         >
                             {isLoading ? (
-                                <><div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Saving...</>
+                                <><div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />Saving...</>
                             ) : (
-                                <><Save className="w-4 h-4" />{id ? 'Update Event' : 'Publish Event'}</>
+                                <><Save className="w-3.5 h-3.5" />{id ? 'Update Event' : 'Publish Event'}</>
                             )}
                         </button>
-                    </div>
-                </div>
-            </div>
+                    </>
+                }
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Side: General Info */}
@@ -413,7 +407,7 @@ const CreateEvent = () => {
                                 <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/20 dark:hover:bg-indigo-900/5 transition-all p-6 group">
                                     <ImageIcon className="w-10 h-10 text-slate-400 group-hover:text-indigo-500 mb-2 transition-colors" />
                                     <span className="text-sm font-bold text-slate-500 group-hover:text-indigo-600">Click to upload banner</span>
-                                    <span className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP up to 5MB</span>
+                                    <span className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP, GIF — up to 10MB (no quality restrictions)</span>
                                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 </label>
                                 {bannerPreview && (
