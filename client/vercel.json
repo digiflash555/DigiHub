@@ -8,6 +8,10 @@
       "destination": "https://digihub-acst.onrender.com/api/:path*"
     },
     {
+      "source": "/socket.io/:path*",
+      "destination": "https://digihub-acst.onrender.com/socket.io/:path*"
+    },
+    {
       "source": "/uploads/:path*",
       "destination": "https://digihub-acst.onrender.com/uploads/:path*"
     },
