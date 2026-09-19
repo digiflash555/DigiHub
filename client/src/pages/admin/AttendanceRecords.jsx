@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import {
     Download, Users, CheckCircle, XCircle,
-    Calendar, Search, Loader2, FileSpreadsheet, ArrowLeft, Settings, QrCode
+    Calendar, Search, Loader2, FileSpreadsheet, ArrowLeft, Settings, QrCode, UserCheck, UserX
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -20,6 +20,7 @@ const AttendanceRecords = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [togglingId, setTogglingId] = useState(null); // reg._id being toggled
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -53,6 +54,44 @@ const AttendanceRecords = () => {
         };
         fetchRecords();
     }, [selectedEvent]);
+
+    const handleToggleAttendance = async (reg) => {
+        if (togglingId) return; // prevent concurrent toggles
+        setTogglingId(reg._id);
+        try {
+            const res = await axios.put(`/api/attendance/toggle/${reg._id}`, {
+                eventId: selectedEvent
+            });
+            const updated = res.data.registration;
+            // Update local records state in-place
+            setRecords(prev => {
+                if (!prev) return prev;
+                const newRecords = prev.records.map(r =>
+                    r._id === reg._id
+                        ? { ...r, attendanceStatus: updated.attendanceStatus, attendanceTime: updated.attendanceTime }
+                        : r
+                );
+                const attended = newRecords.filter(r => r.attendanceStatus).length;
+                return {
+                    ...prev,
+                    records: newRecords,
+                    summary: {
+                        ...prev.summary,
+                        attended,
+                        absent: newRecords.length - attended,
+                        percentage: newRecords.length > 0
+                            ? ((attended / newRecords.length) * 100).toFixed(1)
+                            : '0.0'
+                    }
+                };
+            });
+            toast.success(res.data.message);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to update attendance');
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
     const handleExport = async () => {
         if (!selectedEvent) return;
@@ -652,18 +691,19 @@ const AttendanceRecords = () => {
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">#</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Registration ID</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Participant</th>
-                                    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Year & Dept</th>
+                                    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Year &amp; Dept</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Section</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Email</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Signature</th>
                                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Check-in Time</th>
+                                    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {filteredRecords.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="px-8 py-12 text-center">
+                                        <td colSpan={10} className="px-8 py-12 text-center">
                                             <div className="flex flex-col items-center space-y-3">
                                                 <Search className="w-12 h-12 text-slate-200" />
                                                 <p className="text-slate-400 font-bold">No records match your search.</p>
@@ -715,6 +755,31 @@ const AttendanceRecords = () => {
                                                 {reg.attendanceTime
                                                     ? new Date(reg.attendanceTime).toLocaleString()
                                                     : '-'}
+                                            </td>
+                                            <td className="px-8 py-5">
+                                                {togglingId === reg._id ? (
+                                                    <div className="flex items-center justify-center w-32">
+                                                        <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                                                    </div>
+                                                ) : reg.attendanceStatus ? (
+                                                    <button
+                                                        onClick={() => handleToggleAttendance(reg)}
+                                                        title="Click to mark absent"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                                    >
+                                                        <UserX className="w-3.5 h-3.5" />
+                                                        Mark Absent
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleToggleAttendance(reg)}
+                                                        title="Click to mark present"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                                    >
+                                                        <UserCheck className="w-3.5 h-3.5" />
+                                                        Mark Present
+                                                    </button>
+                                                )}
                                             </td>
                                         </motion.tr>
                                     ))
