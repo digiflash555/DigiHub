@@ -214,7 +214,7 @@ const AttendanceRecords = () => {
             ]);
 
 
-            const recordsToExport = [...filteredRecords];
+            const recordsToExport = [...filteredRecords].filter(reg => reg.attendanceStatus);
 
             // Pre-calculate wrapping for Name of the Event and Venue to dynamically calculate the header box height
             doc.setFont("helvetica", "normal");
