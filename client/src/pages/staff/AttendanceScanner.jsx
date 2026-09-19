@@ -270,6 +270,17 @@ const AttendanceScanner = () => {
             const headerHeight = titleY + 6.5;
 
             const drawHeader = (docInstance) => {
+                // ── Declare all variables at the top to avoid TDZ errors ──
+                docInstance.setFont("helvetica", "bold");
+                docInstance.setFontSize(11.5);
+                let sympNameLines = docInstance.splitTextToSize(settings.symposiumName, 130);
+
+                docInstance.setFontSize(8.5);
+                let sympTypeLines = docInstance.splitTextToSize(settings.symposiumType, 130);
+
+                let currentHeaderY = 31;
+                let headerHeightCalculated = (sympNameLines.length * 6) + (sympTypeLines.length * 4.5);
+
                 // Left Logo (IIC)
                 if (iicLogoBase64) {
                     docInstance.addImage(iicLogoBase64, 'PNG', 15, 12, 24, 24);
@@ -383,17 +394,6 @@ const AttendanceScanner = () => {
                 docInstance.setFont("helvetica", "bold");
                 
                 let venueLinesObj = wrapTextWithIndent(event.venue, venueLabelWidth, maxCellWidth);
-                
-                // Wrap Header Texts
-                docInstance.setFont("helvetica", "bold");
-                docInstance.setFontSize(11.5);
-                let sympNameLines = docInstance.splitTextToSize(settings.symposiumName, 130);
-                
-                docInstance.setFontSize(8.5);
-                let sympTypeLines = docInstance.splitTextToSize(settings.symposiumType, 130);
-                
-                let currentHeaderY = 31;
-                let headerHeightCalculated = (sympNameLines.length * 6) + (sympTypeLines.length * 4.5);
 
                 // Calculate heights
                 const lineHeight = 5.5;
