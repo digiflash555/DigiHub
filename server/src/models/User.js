@@ -113,6 +113,9 @@ const userSchema = new mongoose.Schema({
     dateOfBirth: {
         type: Date
     },
+    lastBirthdayWishesYear: {
+        type: Number
+    },
     displayOrder: {
         type: Number,
         default: 0
