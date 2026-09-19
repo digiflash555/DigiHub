@@ -104,12 +104,12 @@ const startCronJobs = () => {
         }
     });
 
-    // ── Birthday Wishes ── runs every day at 12:00 AM (midnight) IST ─────────────
-    // Cron expression '0 0 * * *' with timezone 'Asia/Kolkata' fires at exactly
-    // midnight IST (00:00 IST = 18:30 UTC previous day).
-    cron.schedule('0 0 * * *', async () => {
+    // ── Birthday Wishes ── runs every hour ─────────────
+    // If the server sleeps (e.g., on Render), running exactly at midnight might be missed.
+    // By running hourly and tracking the year, we ensure the email is sent once per year per user.
+    cron.schedule('0 * * * *', async () => {
         try {
-            console.log('[Cron] Running birthday wishes job at midnight IST...');
+            console.log('[Cron] Running hourly birthday wishes job...');
             const emailService = require('../services/emailService');
 
             // Determine today's date in IST correctly.
@@ -122,6 +122,7 @@ const startCronJobs = () => {
             // Use UTC accessors on the IST-shifted date to get the correct IST calendar values
             const todayMonth = nowIST.getUTCMonth(); // 0-based
             const todayDay   = nowIST.getUTCDate();
+            const currentYearIST = nowIST.getUTCFullYear();
 
             console.log(`[Cron] Checking birthdays for IST date: month=${todayMonth + 1}, day=${todayDay}`);
 
@@ -129,13 +130,17 @@ const startCronJobs = () => {
             const allUsers = await User.find({
                 dateOfBirth: { $exists: true, $ne: null },
                 email:       { $exists: true, $ne: null }
-            }).select('username email dateOfBirth role');
+            }).select('username email dateOfBirth role lastBirthdayWishesYear');
 
             // Filter users whose birthday (month+day) matches today in IST.
             // DOBs are stored as UTC midnight (e.g. 2002-05-14T00:00:00.000Z).
             // We compare only month & day — year is irrelevant.
             const birthdayUsers = allUsers.filter(u => {
                 if (!u.dateOfBirth || !u.email) return false;
+                
+                // Skip if already sent this year
+                if (u.lastBirthdayWishesYear === currentYearIST) return false;
+
                 const dob = new Date(u.dateOfBirth);
                 // Shift the stored UTC-midnight DOB by IST offset so we get the
                 // calendar date the user actually entered (avoids off-by-one on DOBs
@@ -197,6 +202,11 @@ const startCronJobs = () => {
                         type:       'Automatic',
                         templateId: tmpl ? tmpl._id : null,
                     });
+                    
+                    // Mark as sent for this year
+                    user.lastBirthdayWishesYear = currentYearIST;
+                    await user.save();
+                    
                     sentCount++;
                     console.log(`[Cron] 🎂 Birthday wish sent to ${user.username} <${user.email}>`);
                 } catch (err) {
