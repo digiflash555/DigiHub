@@ -208,7 +208,7 @@ const AttendanceScanner = () => {
             const event = records?.event;
             if (!event) throw new Error('Event data missing');
 
-            const allRecords = records.records || [];
+            const allRecords = (records.records || []).filter(reg => reg.attendanceStatus);
             const isTeamEvent = allRecords.length > 0 ? allRecords[0].team != null : false;
 
             const doc = new jsPDF();
