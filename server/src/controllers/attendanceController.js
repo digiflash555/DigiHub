@@ -234,6 +234,60 @@ exports.exportReport = async (req, res, next) => {
     }
 };
 
+// @desc    Toggle attendance status for a single registration
+// @route   PUT /api/attendance/toggle/:registrationId
+// @access  Private/Staff
+exports.toggleAttendance = async (req, res, next) => {
+    try {
+        const { eventId } = req.body;
+
+        if (!eventId) {
+            res.status(400);
+            throw new Error('eventId is required in the request body.');
+        }
+
+        const authorized = await isAuthorizedForEvent(req.user, eventId);
+        if (!authorized) {
+            res.status(403);
+            throw new Error('You are not authorized to manage attendance for this event.');
+        }
+
+        const registration = await Registration.findOne({
+            _id: req.params.registrationId,
+            event: eventId
+        }).populate('participant', 'username email registrationNumber');
+
+        if (!registration) {
+            res.status(404);
+            throw new Error('Registration not found for the specified event.');
+        }
+
+        // Toggle status
+        const newStatus = !registration.attendanceStatus;
+        registration.attendanceStatus = newStatus;
+        registration.attendanceTime = newStatus ? new Date() : null;
+        registration.markedBy = newStatus ? req.user._id : null;
+
+        await registration.save();
+
+        res.json({
+            success: true,
+            message: newStatus
+                ? `Marked present: ${registration.participant?.username}`
+                : `Marked absent: ${registration.participant?.username}`,
+            registration: {
+                _id: registration._id,
+                attendanceStatus: registration.attendanceStatus,
+                attendanceTime: registration.attendanceTime,
+                markedBy: registration.markedBy,
+                participant: registration.participant
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Export attendance report to PDF
 // @route   POST /api/attendance/export/pdf/:eventId
 // @access  Private/Staff
