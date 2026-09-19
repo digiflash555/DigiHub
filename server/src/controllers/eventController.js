@@ -313,9 +313,9 @@ exports.getPublicStats = async (req, res, next) => {
         
         // We can add a bit of padding to make it look "massive" as requested by the UI design
         res.json({
-            totalEvents: totalEvents + 10, 
-            totalRegistrations: totalRegistrations + 500,
-            totalAttendees: totalRegistrations + 450
+            totalEvents: totalEvents + 0, 
+            totalRegistrations: totalRegistrations + 0,
+            totalAttendees: totalRegistrations + 0
         });
     } catch (error) {
         next(error);
