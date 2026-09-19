@@ -325,6 +325,7 @@ const Dashboard = () => {
     const [selectedReg, setSelectedReg] = useState(null);
     const [isBirthday, setIsBirthday] = useState(false);
     const [selectedFeedbackEvent, setSelectedFeedbackEvent] = useState(null);
+    const [selectedRegId, setSelectedRegId] = useState(null);
     const [inchargeEvents, setInchargeEvents] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
@@ -1155,7 +1156,10 @@ const Dashboard = () => {
                                                     </button>
                                                     {reg.event?.feedbackForm?.length > 0 && !reg.feedbackSubmitted && (
                                                         <button
-                                                            onClick={() => setSelectedFeedbackEvent(reg.event)}
+                                                            onClick={() => {
+                                                                setSelectedFeedbackEvent(reg.event);
+                                                                setSelectedRegId(reg._id);
+                                                            }}
                                                             className="flex-1 sm:flex-none py-3 px-6 bg-emerald-600 text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-100"
                                                         >
                                                             <MessageSquare className="w-5 h-5" /> FEEDBACK
@@ -1264,8 +1268,15 @@ const Dashboard = () => {
 
             <FeedbackModal
                 isOpen={!!selectedFeedbackEvent}
-                onClose={() => setSelectedFeedbackEvent(null)}
+                onClose={() => {
+                    setSelectedFeedbackEvent(null);
+                    setSelectedRegId(null);
+                }}
                 event={selectedFeedbackEvent}
+                onSuccess={(regId) => {
+                    setRegistrations(prev => prev.map(r => r._id === regId ? { ...r, feedbackSubmitted: true } : r));
+                }}
+                regId={selectedRegId}
             />
 
             {/* Log Spend Modal */}
