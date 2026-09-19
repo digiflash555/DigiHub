@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, MessageSquare, Star, Sparkles } from 'lucide-react';
 import { downloadCertificateAsPDF } from '../utils/renderCertificateCanvas';
 
-const FeedbackModal = ({ isOpen, onClose, event }) => {
+const FeedbackModal = ({ isOpen, onClose, event, regId, onSuccess }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,13 +50,19 @@ const FeedbackModal = ({ isOpen, onClose, event }) => {
                 responses: formData
             });
 
-            const { regId, hasCertificate } = response.data;
+            const { regId: serverRegId, hasCertificate } = response.data;
+            const resolvedRegId = serverRegId || regId;
 
-            if (hasCertificate && regId) {
+            // Notify parent to hide FEEDBACK button immediately
+            if (onSuccess && resolvedRegId) {
+                onSuccess(resolvedRegId);
+            }
+
+            if (hasCertificate && resolvedRegId) {
                 // Show loading while we fetch + generate the certificate
                 toast.loading('🎓 Generating your certificate...', { id: 'cert-gen' });
                 try {
-                    const certResponse = await axios.get(`/api/certificates/data/${regId}`);
+                    const certResponse = await axios.get(`/api/certificates/data/${resolvedRegId}`);
                     const { participant, event: eventData, config, registrationId } = certResponse.data;
                     await downloadCertificateAsPDF(
                         participant,
@@ -89,15 +95,17 @@ const FeedbackModal = ({ isOpen, onClose, event }) => {
                 // No certificate configured — just submit feedback and inform user
                 onClose();
                 setTimeout(() => {
-                    toast.success('✅ Feedback submitted! Thank you.', { duration: 4000 });
-                    toast(
-                        'ℹ️ Certificate not available yet — admin will distribute it later.',
-                        { duration: 6000, icon: '📋' }
-                    );
+                    toast.success('\u2705 Feedback submitted! Thank you.', { duration: 4000 });
+                    if (hasCertificate === false) {
+                        toast(
+                            '\u2139\ufe0f No certificate configured for this event. Admin will distribute certificates separately.',
+                            { duration: 7000, icon: '\ud83d\udccb' }
+                        );
+                    }
                 }, 150);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Submission failed');
+            toast.error(error.response?.data?.message || 'Submission failed. Please ensure your attendance was marked by admin.');
         } finally {
             setIsSubmitting(false);
         }
