@@ -76,10 +76,7 @@ const Register = () => {
             toast.error("Passwords do not match!");
             return;
         }
-        if (!signatureFile) {
-            toast.error('Signature is required. Please upload your signature.');
-            return;
-        }
+        // Signature is now optional
         setIsLoading(true);
         try {
             // Convert skills string to array and build FormData for file upload
@@ -479,7 +476,7 @@ const Register = () => {
                         {/* Upload Signature Section */}
                         <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Upload Signature <span className="text-red-500">*</span></h3>
+                                <h3 className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Upload Signature <span className="text-slate-400 dark:text-slate-500 font-medium text-xs normal-case tracking-normal ml-1">(Optional)</span></h3>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
                                 Only <span className="font-semibold text-slate-700 dark:text-slate-300">.png</span> files are allowed for the signature upload. If your signature has a background or is in another format,{' '}
