@@ -67,10 +67,7 @@ exports.register = async (req, res, next) => {
             throw new Error('An account with this email already exists');
         }
 
-        if (!req.file) {
-            res.status(400);
-            throw new Error('Signature is required. Please upload your signature as a .png file.');
-        }
+        // Signature is now optional
 
         // Public registration is ALWAYS Participant - role cannot be set externally
         const user = await User.create({
