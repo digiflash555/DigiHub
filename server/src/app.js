@@ -24,6 +24,9 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // Serve .well-known for LoadTester verification
 app.use('/.well-known', express.static(path.join(__dirname, '../public/.well-known')));
 
+// Health check route for UptimeRobot
+app.get('/api/ping', (req, res) => res.status(200).json({ message: 'pong' }));
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/events', require('./routes/eventRoutes'));
