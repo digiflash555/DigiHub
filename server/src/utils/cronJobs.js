@@ -104,12 +104,12 @@ const startCronJobs = () => {
         }
     });
 
-    // ── Birthday Wishes ── runs every hour ─────────────
-    // If the server sleeps (e.g., on Render), running exactly at midnight might be missed.
-    // By running hourly and tracking the year, we ensure the email is sent once per year per user.
-    cron.schedule('0 * * * *', async () => {
+    // ── Birthday Wishes ── runs daily at 12:01 AM ─────────────
+    // Note: If the server sleeps (e.g., on Render), this exact time might be missed.
+    // Ensure you use a keep-alive service if you need it to run exactly at 12:01 AM.
+    cron.schedule('1 0 * * *', async () => {
         try {
-            console.log('[Cron] Running hourly birthday wishes job...');
+            console.log('[Cron] Running daily birthday wishes job...');
             const emailService = require('../services/emailService');
 
             // Determine today's date in IST correctly.
