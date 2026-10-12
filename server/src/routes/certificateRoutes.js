@@ -61,6 +61,7 @@ router.post('/config/:eventId', protect, authorize('Admin'), upload.single('temp
                 richText: Array.isArray(f.richText) ? f.richText.map(s => ({
                     text: String(s.text || ''),
                     style: ['bold', 'italic', 'bolditalic'].includes(s.style) ? s.style : 'normal',
+                    script: ['sub', 'sup'].includes(s.script) ? s.script : 'normal',
                     color: typeof s.color === 'string' && s.color.startsWith('#') ? s.color : null,
                 })) : null,
                 x: Number(f.x) || 0,
