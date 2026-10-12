@@ -39,6 +39,23 @@ const ALL_VARIABLES = [
 
 /* ─── rich-text helpers ──────────────────────────────────────────────── */
 
+/** Subscript and Superscript SVG icon components */
+const SubscriptIcon = ({ className = 'w-3.5 h-3.5' }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m4 5 8 8" />
+        <path d="m12 5-8 8" />
+        <path d="M20 19h-4c0-1.5.44-2 1.5-3 1.1-1.1 2.5-2.2 2.5-3.5 0-1.1-.9-2-2-2-.8 0-1.5.4-1.9 1" />
+    </svg>
+);
+
+const SuperscriptIcon = ({ className = 'w-3.5 h-3.5' }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m4 19 8-8" />
+        <path d="m12 19-8-8" />
+        <path d="M20 11h-4c0-1.5.44-2 1.5-3 1.1-1.1 2.5-2.2 2.5-3.5 0-1.1-.9-2-2-2-.8 0-1.5.4-1.9 1" />
+    </svg>
+);
+
 /** Convert richText segments array → HTML string for contenteditable */
 const segmentsToHTML = (segs) => {
     if (!segs || segs.length === 0) return '';
@@ -53,6 +70,12 @@ const segmentsToHTML = (segs) => {
         else if (s === 'bold') inner = `<b>${t}</b>`;
         else if (s === 'italic') inner = `<i>${t}</i>`;
         
+        if (seg.script === 'sub') {
+            inner = `<sub>${inner}</sub>`;
+        } else if (seg.script === 'sup') {
+            inner = `<sup>${inner}</sup>`;
+        }
+
         if (seg.color) {
             return `<span style="color: ${seg.color}">${inner}</span>`;
         }
@@ -74,7 +97,7 @@ const htmlToSegments = (html) => {
     div.innerHTML = html || '';
     const raw = [];
 
-    const traverse = (node, bold, italic, color) => {
+    const traverse = (node, bold, italic, script, color) => {
         if (node.nodeType === 3) {                 // TEXT_NODE
             const text = node.textContent || '';
             if (text) {
@@ -84,34 +107,47 @@ const htmlToSegments = (html) => {
                         : bold ? 'bold'
                             : italic ? 'italic'
                                 : 'normal',
+                    script: script || 'normal',
                     color: color
                 });
             }
         } else if (node.nodeType === 1) {          // ELEMENT_NODE
             const tag = node.tagName.toLowerCase();
-            let b = bold, it = italic, c = color;
+            let b = bold, it = italic, sc = script, c = color;
             if (tag === 'b' || tag === 'strong') b = true;
             if (tag === 'i' || tag === 'em') it = true;
+            if (tag === 'sub') sc = 'sub';
+            if (tag === 'sup') sc = 'sup';
+            if (node.style && node.style.verticalAlign) {
+                if (node.style.verticalAlign === 'sub') sc = 'sub';
+                if (node.style.verticalAlign === 'super') sc = 'sup';
+            }
             if (tag === 'font' && node.color) c = rgbToHex(node.color);
             if (node.style && node.style.color) c = rgbToHex(node.style.color);
             // Treat block breaks as a space
             if (tag === 'br' || tag === 'div' || tag === 'p') {
-                raw.push({ text: ' ', style: 'normal' });
+                raw.push({ text: ' ', style: 'normal', script: 'normal' });
             }
-            node.childNodes.forEach(child => traverse(child, b, it, c));
+            node.childNodes.forEach(child => traverse(child, b, it, sc, c));
         }
     };
 
-    div.childNodes.forEach(c => traverse(c, false, false, null));
+    div.childNodes.forEach(c => traverse(c, false, false, 'normal', null));
 
     // Merge adjacent same-style segments
     const merged = [];
     for (const seg of raw) {
         if (!seg.text) continue;
-        if (merged.length && merged[merged.length - 1].style === seg.style && merged[merged.length - 1].color === seg.color) {
-            merged[merged.length - 1].text += seg.text;
+        const last = merged[merged.length - 1];
+        if (
+            last &&
+            last.style === seg.style &&
+            (last.script || 'normal') === (seg.script || 'normal') &&
+            last.color === seg.color
+        ) {
+            last.text += seg.text;
         } else {
-            merged.push({ ...seg });
+            merged.push({ ...seg, script: seg.script || 'normal' });
         }
     }
     return merged;
@@ -119,8 +155,18 @@ const htmlToSegments = (html) => {
 
 /** Derive an initial richText array from a field (supports old & new format) */
 const getInitialRichText = (field) => {
-    if (field.richText && field.richText.length > 0) return field.richText;
-    if (field.text) return [{ text: field.text, style: field.fontStyle || 'normal', color: field.color }];
+    if (field.richText && field.richText.length > 0) {
+        return field.richText.map(s => ({
+            ...s,
+            script: s.script || 'normal'
+        }));
+    }
+    if (field.text) {
+        if (field.text.includes('<sup') || field.text.includes('<sub')) {
+            return htmlToSegments(field.text);
+        }
+        return [{ text: field.text, style: field.fontStyle || 'normal', script: 'normal', color: field.color }];
+    }
     return [];
 };
 
@@ -245,6 +291,8 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
     const mounted = useRef(false);
     const [selBold, setSelBold] = useState(false);
     const [selItalic, setSelItalic] = useState(false);
+    const [selSub, setSelSub] = useState(false);
+    const [selSuper, setSelSuper] = useState(false);
 
     // Set initial HTML once on mount
     useEffect(() => {
@@ -262,6 +310,8 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
     const updateSelState = () => {
         setSelBold(document.queryCommandState('bold'));
         setSelItalic(document.queryCommandState('italic'));
+        setSelSub(document.queryCommandState('subscript'));
+        setSelSuper(document.queryCommandState('superscript'));
     };
 
     /**
@@ -271,6 +321,18 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
      */
     const applyFormat = (cmd) => {
         divRef.current.focus();
+        document.execCommand(cmd, false, null);
+        handleInput();
+        updateSelState();
+    };
+
+    const applyScript = (cmd) => {
+        divRef.current.focus();
+        if (cmd === 'subscript' && document.queryCommandState('superscript')) {
+            document.execCommand('superscript', false, null);
+        } else if (cmd === 'superscript' && document.queryCommandState('subscript')) {
+            document.execCommand('subscript', false, null);
+        }
         document.execCommand(cmd, false, null);
         handleInput();
         updateSelState();
@@ -294,8 +356,20 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
         handleInput();
     };
 
-    const preventNewline = (e) => {
-        if (e.key === 'Enter') e.preventDefault();
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            return;
+        }
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === '=' || e.key === ',') {
+                e.preventDefault();
+                applyScript('subscript');
+            } else if (e.key === '+' || e.key === '.' || (e.shiftKey && e.key === '=')) {
+                e.preventDefault();
+                applyScript('superscript');
+            }
+        }
     };
 
     return (
@@ -332,17 +406,45 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                     <Italic className="w-3.5 h-3.5" />
                 </button>
 
+                {/* Subscript */}
+                <button
+                    type="button"
+                    title="Subscript selected text (Ctrl+= or Ctrl+,)"
+                    onMouseDown={e => { e.preventDefault(); applyScript('subscript'); }}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all select-none
+                        ${selSub
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900'
+                            : 'text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                >
+                    <SubscriptIcon className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Superscript */}
+                <button
+                    type="button"
+                    title="Superscript selected text (Ctrl+Shift+= or Ctrl+.)"
+                    onMouseDown={e => { e.preventDefault(); applyScript('superscript'); }}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all select-none
+                        ${selSuper
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900'
+                            : 'text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                >
+                    <SuperscriptIcon className="w-3.5 h-3.5" />
+                </button>
+
                 {/* Inline color palette — never steals focus */}
                 <ColorPickerButton applyColor={applyColor} fieldColor={fieldColor} />
 
                 <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-0.5" />
 
                 {/* Active indicator */}
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 min-w-[60px]">
-                    {selBold && selItalic ? 'Bold + Italic'
-                        : selBold ? 'Bold'
-                            : selItalic ? 'Italic'
-                                : 'Normal'}
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 min-w-[70px]">
+                    {[
+                        selBold ? 'Bold' : null,
+                        selItalic ? 'Italic' : null,
+                        selSub ? 'Sub' : null,
+                        selSuper ? 'Super' : null,
+                    ].filter(Boolean).join(' + ') || 'Normal'}
                 </span>
 
                 <div className="flex-1" />
@@ -371,7 +473,7 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 onKeyUp={updateSelState}
                 onMouseUp={updateSelState}
                 onSelect={updateSelState}
-                onKeyDown={preventNewline}
+                onKeyDown={handleKeyDown}
                 className="w-full min-h-[90px] px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#20242B] rounded-b-xl outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700 text-[13px] leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-slate-300 dark:empty:before:text-slate-600"
                 data-placeholder="e.g. This is to certify that {Prefix} {Name}…"
                 style={{
@@ -382,9 +484,47 @@ const RichTextEditor = ({ initialRichText, onChange, fieldColor, fontFamily }) =
                 }}
             />
 
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium pl-1">
-                💡 <strong>Select</strong> any text then click <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[9px] font-black border border-slate-200 dark:border-slate-700">B</kbd> or <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[9px] font-black border border-slate-200 dark:border-slate-700">I</kbd> to format only that selection. Works with keyboard shortcuts too.
-            </p>
+            {/* ── Subscript & Superscript formatting hint guide ── */}
+            <div className="bg-gradient-to-r from-indigo-50/80 via-blue-50/50 to-amber-50/40 dark:from-indigo-950/40 dark:via-[#1e2330] dark:to-amber-950/20 border border-indigo-100/80 dark:border-indigo-900/40 rounded-xl p-3 text-[11px] space-y-2 text-slate-600 dark:text-slate-300 shadow-xs">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-black text-indigo-600 dark:text-indigo-400 text-xs">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <span>How to Use Subscript &amp; Superscript</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Live formatting</span>
+                </div>
+                <p className="leading-relaxed text-[11px] text-slate-600 dark:text-slate-300">
+                    💡 <strong>Select any text</strong> with your cursor, then click the toolbar button or use keyboard shortcuts:
+                </p>
+                <div className="grid sm:grid-cols-2 gap-2 pt-0.5 text-[10px]">
+                    <div className="flex items-start gap-2 bg-white/80 dark:bg-[#1a1d24]/80 p-2 rounded-lg border border-slate-200/80 dark:border-slate-700/80">
+                        <span className="w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-black flex items-center justify-center flex-shrink-0">
+                            X²
+                        </span>
+                        <div>
+                            <p className="font-bold text-slate-700 dark:text-slate-200">
+                                Superscript (<kbd className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono text-[9px]">Ctrl+.</kbd> or <kbd className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono text-[9px]">Ctrl+Shift+=</kbd>)
+                            </p>
+                            <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">
+                                Perfect for rank ordinals like 1<sup>st</sup>, 2<sup>nd</sup>, 3<sup>rd</sup> place, dates (e.g. 25<sup>th</sup>), or exponents.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-2 bg-white/80 dark:bg-[#1a1d24]/80 p-2 rounded-lg border border-slate-200/80 dark:border-slate-700/80">
+                        <span className="w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-black flex items-center justify-center flex-shrink-0">
+                            X₂
+                        </span>
+                        <div>
+                            <p className="font-bold text-slate-700 dark:text-slate-200">
+                                Subscript (<kbd className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono text-[9px]">Ctrl+=</kbd> or <kbd className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono text-[9px]">Ctrl+,</kbd>)
+                            </p>
+                            <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">
+                                Ideal for chemical formulas (e.g. H<sub>2</sub>O, CO<sub>2</sub>), indices (X<sub>1</sub>, A<sub>n</sub>), or custom notations.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
@@ -725,14 +865,23 @@ const ManageCertificates = () => {
     }, [selectedEventId]);
 
     const normalizeFields = (fields) =>
-        (fields || []).map(f => ({
-            ...f,
-            variableColors: f.variableColors || {},
-            variableFontStyles: f.variableFontStyles || {},
-            variableFontFamilies: f.variableFontFamilies || {},
-            variableUnderlines: f.variableUnderlines || {},
-            richText: f.richText || null,
-        }));
+        (fields || []).map(f => {
+            let richText = f.richText;
+            if ((!richText || richText.length === 0) && f.text && (f.text.includes('<sup') || f.text.includes('<sub'))) {
+                richText = htmlToSegments(f.text);
+            }
+            return {
+                ...f,
+                variableColors: f.variableColors || {},
+                variableFontStyles: f.variableFontStyles || {},
+                variableFontFamilies: f.variableFontFamilies || {},
+                variableUnderlines: f.variableUnderlines || {},
+                richText: richText ? richText.map(s => ({
+                    ...s,
+                    script: s.script || 'normal'
+                })) : null,
+            };
+        });
 
     const fetchConfig = async (eventId) => {
         try {
@@ -761,7 +910,7 @@ const ManageCertificates = () => {
             fields: [...prev.fields, {
                 type: 'Text',
                 text: '',
-                richText: [{ text: 'This is to certify that {Prefix} {Name} of {Year&Department} has participated in {EventName}.', style: 'normal' }],
+                richText: [{ text: 'This is to certify that {Prefix} {Name} of {Year&Department} has participated in {EventName}.', style: 'normal', script: 'normal' }],
                 x: 400, y: 300,
                 fontSize: 24,
                 color: '#000000',
@@ -804,7 +953,8 @@ const ManageCertificates = () => {
             text: f.richText ? f.richText.map(s => s.text).join('') : (f.text || ''),
             richText: f.richText ? f.richText.map(s => ({
                 text: s.text,
-                style: s.style,
+                style: s.style || 'normal',
+                script: s.script || 'normal',
                 color: s.color || null
             })) : null,
             x: Number(f.x) || 0,
@@ -990,7 +1140,7 @@ const ManageCertificates = () => {
         <div className="space-y-8 pb-20">
             <AdminTopBar 
                 title="Certificate Studio" 
-                subtitle="Design dynamic certificates with bold/italic formatting, dynamic placement, and bulk-send certificates to all participants." 
+                subtitle="Design dynamic certificates with bold/italic, subscript & superscript formatting, dynamic placement, and bulk-send certificates to all participants." 
                 icon={Award}
                 badge="Template Studio"
                 actions={
@@ -1112,6 +1262,16 @@ const ManageCertificates = () => {
                                     <p className="text-amber-300 text-xs font-bold">⚠️ Upload a template to enable preview &amp; bulk send</p>
                                 </div>
                             )}
+
+                            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3 space-y-1">
+                                <p className="text-indigo-300 text-xs font-bold flex items-center gap-1.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Pro-Tip: Subscript &amp; Superscript
+                                </p>
+                                <p className="text-slate-300 text-[11px] leading-relaxed">
+                                    Highlight text and click <strong className="text-white">X²</strong> (<kbd className="bg-slate-800 px-1 rounded text-[10px]">Ctrl+.</kbd>) for ordinal suffixes like 1ˢᵗ, 2ⁿᵈ, 3ʳᵈ place, or <strong className="text-white">X₂</strong> for subscript notations!
+                                </p>
+                            </div>
+
                             <button onClick={addField}
                                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
                                 <Plus className="w-4 h-4" /> Add Field
@@ -1200,7 +1360,7 @@ const ManageCertificates = () => {
                                         <AnimatePresence>
                                             {config.fields.map((field, idx) => (
                                                 <FieldCard
-                                                    key={idx}
+                                                    key={`${selectedEventId || 'none'}-${idx}`}
                                                     field={field}
                                                     idx={idx}
                                                     updateField={updateField}
