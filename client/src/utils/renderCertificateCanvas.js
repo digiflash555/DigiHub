@@ -118,7 +118,7 @@ export const renderCertificateCanvas = async (
         if (field.type === 'Text') {
             // ── Build runs from richText segments (or fall back to field.text) ─
             const runs = [];
-            const tokenizeSegmentToRuns = (rawText, segStyle, segColor) => {
+            const tokenizeSegmentToRuns = (rawText, segStyle, segScript, segColor) => {
                 const varRegex = /\{[^}]+\}/g;
                 let cursor = 0;
                 let m;
@@ -127,6 +127,7 @@ export const renderCertificateCanvas = async (
                         runs.push({
                             text: rawText.slice(cursor, m.index),
                             style: segStyle,
+                            script: segScript || 'normal',
                             family: baseFamily,
                             color: segColor || baseColor,
                             isVar: false,
@@ -141,6 +142,7 @@ export const renderCertificateCanvas = async (
                     runs.push({
                         text: String(resolved),
                         style: varStyle,
+                        script: segScript || 'normal',
                         family: varFamily,
                         color: varColor,
                         isVar: true,
@@ -152,6 +154,7 @@ export const renderCertificateCanvas = async (
                     runs.push({
                         text: rawText.slice(cursor),
                         style: segStyle,
+                        script: segScript || 'normal',
                         family: baseFamily,
                         color: segColor || baseColor,
                         isVar: false,
@@ -160,17 +163,47 @@ export const renderCertificateCanvas = async (
                 }
             };
 
+            // Support fallback regex parsing if field.richText is empty but field.text has <sup> or <sub>
+            const parseFallbackRichText = (str) => {
+                const parts = [];
+                const regex = /<(sup|sub)>([\s\S]*?)<\/\1>/gi;
+                let lastIdx = 0;
+                let match;
+                while ((match = regex.exec(str)) !== null) {
+                    if (match.index > lastIdx) {
+                        parts.push({ text: str.slice(lastIdx, match.index), style: baseStyle, script: 'normal' });
+                    }
+                    parts.push({
+                        text: match[2],
+                        style: baseStyle,
+                        script: match[1].toLowerCase()
+                    });
+                    lastIdx = regex.lastIndex;
+                }
+                if (lastIdx < str.length) {
+                    parts.push({ text: str.slice(lastIdx), style: baseStyle, script: 'normal' });
+                }
+                return parts;
+            };
+
             if (field.richText && field.richText.length > 0) {
                 for (const seg of field.richText) {
-                    tokenizeSegmentToRuns(seg.text || '', seg.style || 'normal', seg.color);
+                    tokenizeSegmentToRuns(seg.text || '', seg.style || 'normal', seg.script || 'normal', seg.color);
+                }
+            } else if (field.text && (field.text.includes('<sup') || field.text.includes('<sub'))) {
+                const fallbackSegs = parseFallbackRichText(field.text);
+                for (const seg of fallbackSegs) {
+                    tokenizeSegmentToRuns(seg.text || '', seg.style || baseStyle, seg.script || 'normal', seg.color || null);
                 }
             } else {
-                tokenizeSegmentToRuns(field.text || '', baseStyle, null);
+                tokenizeSegmentToRuns(field.text || '', baseStyle, 'normal', null);
             }
 
             // ── measure helper ───────────────────────────────────────────────
-            const measure = (wordText, wStyle, wFamily) => {
-                ctx.font = buildFont(fontSize, wStyle, wFamily);
+            const measure = (wordText, wStyle, wFamily, wScript = 'normal') => {
+                const isScript = wScript === 'sub' || wScript === 'sup';
+                const effectiveSize = isScript ? Math.round(fontSize * 0.62) : fontSize;
+                ctx.font = buildFont(effectiveSize, wStyle, wFamily);
                 return ctx.measureText(wordText).width;
             };
 
@@ -188,6 +221,7 @@ export const renderCertificateCanvas = async (
                             currentWord.chunks.push({
                                 text: text.slice(wordStart, i),
                                 style: run.style,
+                                script: run.script,
                                 family: run.family,
                                 color: run.color,
                                 isVar: run.isVar,
@@ -207,6 +241,7 @@ export const renderCertificateCanvas = async (
                     currentWord.chunks.push({
                         text: text.slice(wordStart),
                         style: run.style,
+                        script: run.script,
                         family: run.family,
                         color: run.color,
                         isVar: run.isVar,
@@ -221,10 +256,10 @@ export const renderCertificateCanvas = async (
             const measureWord = (word) => {
                 let w = 0;
                 for (const chunk of word.chunks) {
-                    w += measure(chunk.text, chunk.style, chunk.family);
+                    w += measure(chunk.text, chunk.style, chunk.family, chunk.script);
                 }
                 if (word.hasTrailingSpace) {
-                    w += measure(' ', 'normal', baseFamily);
+                    w += measure(' ', 'normal', baseFamily, 'normal');
                 }
                 return w;
             };
@@ -253,10 +288,10 @@ export const renderCertificateCanvas = async (
                 let width = 0;
                 lineArr.forEach((word, idx) => {
                     for (const chunk of word.chunks) {
-                        width += measure(chunk.text, chunk.style, chunk.family);
+                        width += measure(chunk.text, chunk.style, chunk.family, chunk.script);
                     }
                     if (word.hasTrailingSpace && idx < lineArr.length - 1) {
-                        width += measure(' ', 'normal', baseFamily);
+                        width += measure(' ', 'normal', baseFamily, 'normal');
                     }
                 });
                 return width;
@@ -288,10 +323,21 @@ export const renderCertificateCanvas = async (
 
                 lineArr.forEach((word, wordIdx) => {
                     word.chunks.forEach(chunk => {
-                        const cColor  = chunk.color;
-                        ctx.font      = buildFont(fontSize, chunk.style, chunk.family);
+                        const cColor       = chunk.color;
+                        const isScript     = chunk.script === 'sub' || chunk.script === 'sup';
+                        const effectiveSize = isScript ? Math.round(fontSize * 0.62) : fontSize;
+
+                        ctx.font      = buildFont(effectiveSize, chunk.style, chunk.family);
                         ctx.fillStyle = cColor;
-                        ctx.fillText(chunk.text, x, y);
+
+                        let drawY = y;
+                        if (chunk.script === 'sup') {
+                            drawY = y - fontSize * 0.38;
+                        } else if (chunk.script === 'sub') {
+                            drawY = y + fontSize * 0.18;
+                        }
+
+                        ctx.fillText(chunk.text, x, drawY);
 
                         const isUnderlined = chunk.isVar && (field.underlineVariables || field.variableUnderlines?.[chunk.originalVar]);
                         if (isUnderlined) {
@@ -299,16 +345,16 @@ export const renderCertificateCanvas = async (
                             ctx.strokeStyle = cColor;
                             ctx.lineWidth   = 1 * dpr;
                             ctx.beginPath();
-                            ctx.moveTo(x, y + 2 * dpr);
-                            ctx.lineTo(x + uw, y + 2 * dpr);
+                            ctx.moveTo(x, drawY + 2 * dpr);
+                            ctx.lineTo(x + uw, drawY + 2 * dpr);
                             ctx.stroke();
                         }
 
-                        x += measure(chunk.text, chunk.style, chunk.family);
+                        x += measure(chunk.text, chunk.style, chunk.family, chunk.script);
                     });
 
                     if (word.hasTrailingSpace && wordIdx < lineArr.length - 1) {
-                        x += measure(' ', 'normal', baseFamily);
+                        x += measure(' ', 'normal', baseFamily, 'normal');
                         if (align === 'justify' && lineIdx < lastIdx) {
                             x += extraPerSpace;
                         }
