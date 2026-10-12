@@ -103,57 +103,152 @@ const generateCertificate = async (registration, config) => {
         try { doc.setFont(fontFamily, style); } catch { doc.setFont('helvetica', style); }
 
         if (field.type === 'Text') {
-            // ── Build word chunks (richText path or legacy fallback) ───────────
-            //
-            // richText: [{ text: string, style: 'normal'|'bold'|'italic'|'bolditalic' }]
-            // Each segment may contain {Variable} tokens; variables get per-var style overrides.
-
-            const wordsInfo = [];
-
-            const pushWords = (text, wordStyle, isVar, originalVar) => {
-                const words = String(text).split(' ');
-                words.forEach((w, i) => {
-                    const word = i < words.length - 1 ? w + ' ' : w;
-                    if (word.length > 0) {
-                        wordsInfo.push({ word, style: wordStyle, isVar, originalVar });
-                    }
-                });
-            };
-
-            const tokenizeSegment = (rawText, segStyle) => {
+            const runs = [];
+            const tokenizeSegmentToRuns = (rawText, segStyle, segScript, segColor) => {
                 const varRegex = /\{([^}]+)\}/g;
                 let cursor = 0;
                 let m;
                 while ((m = varRegex.exec(rawText)) !== null) {
                     if (m.index > cursor) {
-                        pushWords(rawText.substring(cursor, m.index), segStyle, false, null);
+                        runs.push({
+                            text: rawText.substring(cursor, m.index),
+                            style: segStyle,
+                            script: segScript || 'normal',
+                            color: segColor || color,
+                            isVar: false,
+                            originalVar: null
+                        });
                     }
-                    const varKey  = m[0];          // e.g. '{Name}'
+                    const varKey = m[0];          // e.g. '{Name}'
                     const varValue = variables[m[1]] !== undefined ? variables[m[1]] : varKey;
                     const varStyle = (field.variableFontStyles && field.variableFontStyles[varKey]) || segStyle;
-                    pushWords(varValue, varStyle, true, varKey);
+                    const varColor = (field.variableColors && field.variableColors[varKey]) || segColor || color;
+                    runs.push({
+                        text: String(varValue),
+                        style: varStyle,
+                        script: segScript || 'normal',
+                        color: varColor,
+                        isVar: true,
+                        originalVar: varKey
+                    });
                     cursor = varRegex.lastIndex;
                 }
                 if (cursor < rawText.length) {
-                    pushWords(rawText.substring(cursor), segStyle, false, null);
+                    runs.push({
+                        text: rawText.substring(cursor),
+                        style: segStyle,
+                        script: segScript || 'normal',
+                        color: segColor || color,
+                        isVar: false,
+                        originalVar: null
+                    });
                 }
             };
 
+            // Support fallback regex parsing if field.richText is empty but field.text has <sup> or <sub>
+            const parseFallbackRichText = (str) => {
+                const parts = [];
+                const regex = /<(sup|sub)>([\s\S]*?)<\/\1>/gi;
+                let lastIdx = 0;
+                let match;
+                while ((match = regex.exec(str)) !== null) {
+                    if (match.index > lastIdx) {
+                        parts.push({ text: str.slice(lastIdx, match.index), style: 'normal', script: 'normal' });
+                    }
+                    parts.push({
+                        text: match[2],
+                        style: 'normal',
+                        script: match[1].toLowerCase()
+                    });
+                    lastIdx = regex.lastIndex;
+                }
+                if (lastIdx < str.length) {
+                    parts.push({ text: str.slice(lastIdx), style: 'normal', script: 'normal' });
+                }
+                return parts;
+            };
+
             if (field.richText && field.richText.length > 0) {
-                // ── NEW: per-segment styles ──────────────────────────────────
                 for (const seg of field.richText) {
-                    tokenizeSegment(seg.text || '', seg.style || 'normal');
+                    tokenizeSegmentToRuns(seg.text || '', seg.style || 'normal', seg.script || 'normal', seg.color);
+                }
+            } else if (field.text && (field.text.includes('<sup') || field.text.includes('<sub'))) {
+                const fallbackSegs = parseFallbackRichText(field.text);
+                for (const seg of fallbackSegs) {
+                    tokenizeSegmentToRuns(seg.text || '', seg.style || style, seg.script || 'normal', null);
                 }
             } else {
-                // ── LEGACY: single style for whole field ────────────────────
-                tokenizeSegment(field.text || '', style);
+                tokenizeSegmentToRuns(field.text || '', style, 'normal', null);
+            }
+
+            // ── Group runs into proper Word tokens (splitting only by spaces) ─
+            const words = [];
+            let currentWord = { chunks: [], hasTrailingSpace: false };
+
+            for (const run of runs) {
+                const text = run.text;
+                let wordStart = 0;
+
+                for (let i = 0; i < text.length; i++) {
+                    if (text[i] === ' ') {
+                        if (i > wordStart) {
+                            currentWord.chunks.push({
+                                text: text.substring(wordStart, i),
+                                style: run.style,
+                                script: run.script,
+                                color: run.color,
+                                isVar: run.isVar,
+                                originalVar: run.originalVar
+                            });
+                        }
+                        if (currentWord.chunks.length > 0) {
+                            currentWord.hasTrailingSpace = true;
+                            words.push(currentWord);
+                        }
+                        currentWord = { chunks: [], hasTrailingSpace: false };
+                        wordStart = i + 1;
+                    }
+                }
+
+                if (wordStart < text.length) {
+                    currentWord.chunks.push({
+                        text: text.substring(wordStart),
+                        style: run.style,
+                        script: run.script,
+                        color: run.color,
+                        isVar: run.isVar,
+                        originalVar: run.originalVar
+                    });
+                }
+            }
+            if (currentWord.chunks.length > 0) {
+                words.push(currentWord);
             }
 
             // ── measure helper ────────────────────────────────────────────────
-            const measureText = (text, chunkStyle, chunkFontFam = fontFamily) => {
+            const measureText = (text, chunkStyle, chunkFontFam = fontFamily, chunkScript = 'normal') => {
+                const isScript = chunkScript === 'sub' || chunkScript === 'sup';
+                const effectiveSize = isScript ? Math.round(fontSize * 0.62) : fontSize;
+                doc.setFontSize(effectiveSize);
                 try { doc.setFont(chunkFontFam, resolveStyle(chunkStyle)); }
                 catch { doc.setFont('helvetica', resolveStyle(chunkStyle)); }
-                return doc.getStringUnitWidth(text) * doc.getFontSize() / doc.internal.scaleFactor;
+                const width = typeof doc.getTextWidth === 'function'
+                    ? doc.getTextWidth(text)
+                    : (doc.getStringUnitWidth(text) * doc.getFontSize() / doc.internal.scaleFactor);
+                doc.setFontSize(fontSize);
+                return width;
+            };
+
+            const measureWord = (word) => {
+                let w = 0;
+                for (const chunk of word.chunks) {
+                    const wFontFam = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || fontFamily;
+                    w += measureText(chunk.text, chunk.style, wFontFam, chunk.script);
+                }
+                if (word.hasTrailingSpace) {
+                    w += measureText(' ', 'normal', fontFamily, 'normal');
+                }
+                return w;
             };
 
             // ── wrap into lines ───────────────────────────────────────────────
@@ -161,9 +256,8 @@ const generateCertificate = async (registration, config) => {
             let currentLine = [];
             let currentLineWidth = 0;
 
-            for (const wo of wordsInfo) {
-                const wFontFam = (wo.isVar && field.variableFontFamilies?.[wo.originalVar]) || fontFamily;
-                const wordWidth = measureText(wo.word, wo.style, wFontFam);
+            for (const wo of words) {
+                const wordWidth = measureWord(wo);
                 if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
                     linesInfo.push(currentLine);
                     currentLine = [wo];
@@ -178,45 +272,68 @@ const generateCertificate = async (registration, config) => {
             // ── draw lines ────────────────────────────────────────────────────
             let y = field.y * SCALE;
             const lineHeight = fontSize * 1.2;
+            const lastIdx = linesInfo.length - 1;
 
             linesInfo.forEach((lineArray, lineIdx) => {
-                const isLastLine = lineIdx === linesInfo.length - 1;
+                const isLastLine = lineIdx === lastIdx;
 
-                const lineWidth = lineArray.reduce((sum, w) => {
-                    const wFontFam = (w.isVar && field.variableFontFamilies?.[w.originalVar]) || fontFamily;
-                    return sum + measureText(w.word, w.style, wFontFam);
-                }, 0);
+                let lineWidth = 0;
+                lineArray.forEach((word, idx) => {
+                    for (const chunk of word.chunks) {
+                        const wFontFam = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || fontFamily;
+                        lineWidth += measureText(chunk.text, chunk.style, wFontFam, chunk.script);
+                    }
+                    if (word.hasTrailingSpace && idx < lineArray.length - 1) {
+                        lineWidth += measureText(' ', 'normal', fontFamily, 'normal');
+                    }
+                });
 
                 let startX = field.x * SCALE;
                 if (align === 'center') startX = field.x * SCALE - lineWidth / 2;
                 if (align === 'right')  startX = field.x * SCALE - lineWidth;
 
                 let extraSpacePerWord = 0;
-                if (align === 'justify' && !isLastLine && lineArray.length > 1) {
-                    const numSpaces = lineArray.filter(w => w.word.endsWith(' ')).length;
-                    if (numSpaces > 0) extraSpacePerWord = (maxWidth - lineWidth) / numSpaces;
+                const internalGaps = lineArray.length - 1;
+                if (align === 'justify' && !isLastLine && internalGaps > 0) {
+                    extraSpacePerWord = (maxWidth - lineWidth) / internalGaps;
                 }
 
                 let x = startX;
-                lineArray.forEach(chunk => {
-                    const textColor  = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || color;
-                    const textFontFam = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || fontFamily;
+                lineArray.forEach((word, wordIdx) => {
+                    word.chunks.forEach(chunk => {
+                        const textColor   = (chunk.isVar && field.variableColors?.[chunk.originalVar]) || chunk.color || color;
+                        const textFontFam = (chunk.isVar && field.variableFontFamilies?.[chunk.originalVar]) || fontFamily;
+                        const isScript    = chunk.script === 'sub' || chunk.script === 'sup';
+                        const effectiveSize = isScript ? Math.round(fontSize * 0.62) : fontSize;
 
-                    doc.setTextColor(textColor);
-                    try { doc.setFont(textFontFam, resolveStyle(chunk.style)); }
-                    catch { doc.setFont('helvetica', resolveStyle(chunk.style)); }
-                    doc.text(chunk.word, x, y, { align: 'left' });
+                        let drawY = y;
+                        if (chunk.script === 'sup') {
+                            drawY = y - fontSize * 0.38;
+                        } else if (chunk.script === 'sub') {
+                            drawY = y + fontSize * 0.18;
+                        }
 
-                    if (chunk.isVar && field.underlineVariables) {
-                        doc.setDrawColor(textColor);
-                        doc.setLineWidth(SCALE);
-                        const drawWidth = measureText(chunk.word.trimEnd(), chunk.style, textFontFam);
-                        doc.line(x, y + 2 * SCALE, x + drawWidth, y + 2 * SCALE);
-                    }
+                        doc.setTextColor(textColor);
+                        doc.setFontSize(effectiveSize);
+                        try { doc.setFont(textFontFam, resolveStyle(chunk.style)); }
+                        catch { doc.setFont('helvetica', resolveStyle(chunk.style)); }
+                        doc.text(chunk.text, x, drawY, { align: 'left', baseline: 'alphabetic' });
 
-                    x += measureText(chunk.word, chunk.style, textFontFam);
-                    if (align === 'justify' && !isLastLine && chunk.word.endsWith(' ')) {
-                        x += extraSpacePerWord;
+                        if (chunk.isVar && field.underlineVariables) {
+                            doc.setDrawColor(textColor);
+                            doc.setLineWidth(SCALE);
+                            const drawWidth = measureText(chunk.text, chunk.style, textFontFam, chunk.script);
+                            doc.line(x, drawY + 2 * SCALE, x + drawWidth, drawY + 2 * SCALE);
+                        }
+
+                        x += measureText(chunk.text, chunk.style, textFontFam, chunk.script);
+                    });
+
+                    if (word.hasTrailingSpace && wordIdx < lineArray.length - 1) {
+                        x += measureText(' ', 'normal', fontFamily, 'normal');
+                        if (align === 'justify' && !isLastLine) {
+                            x += extraSpacePerWord;
+                        }
                     }
                 });
                 y += lineHeight;
