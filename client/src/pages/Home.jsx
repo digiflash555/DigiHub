@@ -15,12 +15,10 @@ import {
 const Home = () => {
     const [events, setEvents] = useState([]);
     const [stats, setStats] = useState({ totalEvents: 0, totalRegistrations: 0, totalAttendees: 0 });
-    const [associationMembers, setAssociationMembers] = useState([]);
     const [facultyList, setFacultyList] = useState([]);
     const [adminProfile, setAdminProfile] = useState(null);
     const [hodProfile, setHodProfile] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [currentMemberIndex, setCurrentMemberIndex] = useState(0);
     const [currentFacultyIndex, setCurrentFacultyIndex] = useState(0);
 
     useEffect(() => {
@@ -30,36 +28,12 @@ const Home = () => {
                     axios.get(`/api/events?status=Open`),
                     axios.get(`/api/events/public-stats`),
                     axios.get(`/api/auth/association-members`)
-                ]);
+                ]); // membersRes still used for faculty/admin/hod
                 setEvents(eventsRes.data.slice(0, 3));
                 setStats(statsRes.data);
                 const members = membersRes.data;
                 setAdminProfile(members.find(m => m.role === 'Admin') || null);
                 setHodProfile(members.find(m => m.role === 'Head of the Department') || null);
-
-                const roleOrder = [
-                    "President",
-                    "Secretary",
-                    "General Secretary",
-                    "Treasurer",
-                    "Vice – President",
-                    "Joint Secretary",
-                    "Technical Coordinator",
-                    "Event Coordinator",
-                    "Media & Social Media Coordinator",
-                    "Photography & Design Coordinator",
-                    "Chief Editor & Head of Digitimes",
-                    "Digitimes Incharge (Magazine)",
-                    "Digitimes Incharge",
-                    "Byte Bulletin Incharge (Newsletter)",
-                    "Byte Bulletin Incharge",
-                    "Web Designing Coordinator",
-                    "Documentation Incharge",
-                    "Executive Member",
-                    "Executive Members",
-                    "Digitimes Magazine Team",
-                    "Senior Executive Member"
-                ];
 
                 // Extract and sort faculty members (including Admin/HOD if they should be in the list)
                 // We'll include roles Faculty, Admin, HOD in the faculty list, sorted by displayOrder
@@ -68,23 +42,10 @@ const Home = () => {
                     .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
                 setFacultyList(faculty);
 
-                const filteredMembers = members.filter(m => !['Admin', 'Head of the Department', 'Faculty'].includes(m.role));
-                filteredMembers.sort((a, b) => {
-                    let indexA = roleOrder.indexOf(a.associationRole?.trim());
-                    let indexB = roleOrder.indexOf(b.associationRole?.trim());
-
-                    if (indexA === -1) indexA = 999;
-                    if (indexB === -1) indexB = 999;
-
-                    return indexA - indexB;
-                });
-
-                setAssociationMembers(filteredMembers);
             } catch (error) {
                 console.error('Failed to fetch home data');
                 setStats({ totalEvents: 0, totalRegistrations: 0, totalAttendees: 0 });
                 setEvents([]);
-                setAssociationMembers([]);
                 setFacultyList([]);
                 setAdminProfile(null);
                 setHodProfile(null);
@@ -94,23 +55,6 @@ const Home = () => {
         };
         fetchHomeData();
     }, []);
-
-    useEffect(() => {
-        if (associationMembers.length > 0) {
-            const timer = setInterval(() => {
-                setCurrentMemberIndex((prev) => (prev + 1) % associationMembers.length);
-            }, 3000); // Auto-slide every 3 seconds
-            return () => clearInterval(timer);
-        }
-    }, [associationMembers.length]);
-
-    const handlePrevMember = () => {
-        setCurrentMemberIndex((prev) => (prev === 0 ? associationMembers.length - 1 : prev - 1));
-    };
-
-    const handleNextMember = () => {
-        setCurrentMemberIndex((prev) => (prev + 1) % associationMembers.length);
-    };
 
     useEffect(() => {
         if (facultyList.length > 3) {
@@ -486,87 +430,6 @@ const Home = () => {
                 </section>
             )}
 
-            {/* Association Members Carousel */}
-            {associationMembers.length > 0 && (
-                <section className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-                    <div className="text-center space-y-4">
-                        <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tight">Our <span className="text-reveal">Team</span></h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg font-medium">The dedicated members driving the association forward.</p>
-                    </div>
-
-                    <div className="relative max-w-4xl mx-auto">
-                        <div className="overflow-hidden rounded-[3rem] bg-gradient-to-br from-primary-50 to-purple-50 dark:from-slate-900 dark:to-slate-800 border border-primary-100 dark:border-slate-800 shadow-xl relative min-h-[400px] flex items-center justify-center p-8">
-
-                            <AnimatePresence mode="wait">
-                                <motion.div
-                                    key={currentMemberIndex}
-                                    initial={{ opacity: 0, x: 50 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -50 }}
-                                    transition={{ duration: 0.1, ease: "easeInOut" }}
-                                    className="flex flex-col md:flex-row items-center gap-10"
-                                >
-                                    <div className="shrink-0 relative">
-                                        <div className="absolute inset-0 bg-primary-200 dark:bg-primary-900/30 rounded-full blur-2xl opacity-50"></div>
-                                        {associationMembers[currentMemberIndex]?.profileImage ? (
-                                            <img
-                                                src={getImageUrl(associationMembers[currentMemberIndex].profileImage)}
-                                                alt={associationMembers[currentMemberIndex].username}
-                                                className="w-48 h-48 md:w-64 md:h-64 rounded-full object-cover border-4 border-white dark:border-slate-800 shadow-2xl relative z-10"
-                                            />
-                                        ) : (
-                                            <div className="w-48 h-48 md:w-64 md:h-64 rounded-full bg-white dark:bg-slate-900 border-4 border-white dark:border-slate-800 shadow-2xl flex items-center justify-center relative z-10 text-primary-200 dark:text-primary-800">
-                                                <Users className="w-20 h-20" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-4 text-center md:text-left">
-                                        <div className="inline-block px-4 py-1.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-bold text-sm tracking-wide uppercase">
-                                            {associationMembers[currentMemberIndex]?.associationRole || 'Volunteer'}
-                                        </div>
-                                        <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white">{associationMembers[currentMemberIndex]?.username}</h3>
-                                        {associationMembers[currentMemberIndex]?.yearAndDept && (
-                                            <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
-                                                {associationMembers[currentMemberIndex].yearAndDept} {associationMembers[currentMemberIndex].section !== 'Nil' ? `- ${associationMembers[currentMemberIndex].section}` : ''}
-                                            </p>
-                                        )}
-                                        {associationMembers[currentMemberIndex]?.bio && (
-                                            <p className="text-slate-600 dark:text-slate-300 max-w-md mt-4">
-                                                "{associationMembers[currentMemberIndex].bio}"
-                                            </p>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            </AnimatePresence>
-
-                            {/* Navigation Buttons */}
-                            <button
-                                onClick={handlePrevMember}
-                                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-slate-800 dark:text-white hover:bg-white dark:hover:bg-slate-700 hover:scale-110 transition-all z-20"
-                            >
-                                <ChevronRight className="w-6 h-6 rotate-180" />
-                            </button>
-                            <button
-                                onClick={handleNextMember}
-                                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-slate-800 dark:text-white hover:bg-white dark:hover:bg-slate-700 hover:scale-110 transition-all z-20"
-                            >
-                                <ChevronRight className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        {/* Dots */}
-                        <div className="flex justify-center gap-2 mt-8">
-                            {associationMembers.map((_, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setCurrentMemberIndex(idx)}
-                                    className={`w-3 h-3 rounded-full transition-all ${idx === currentMemberIndex ? 'bg-primary-600 w-8' : 'bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600'}`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </section>
-            )}
 
             {/* Final CTA */}
             <section className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
