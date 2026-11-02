@@ -1,7 +1,7 @@
 import { getImageUrl } from '../utils/imageUrl';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
 
@@ -19,6 +19,7 @@ const Home = () => {
     const [facultyList, setFacultyList] = useState([]);
     const [adminProfile, setAdminProfile] = useState(null);
     const [hodProfile, setHodProfile] = useState(null);
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [currentMemberIndex, setCurrentMemberIndex] = useState(0);
     const [currentFacultyIndex, setCurrentFacultyIndex] = useState(0);
@@ -27,10 +28,10 @@ const Home = () => {
         const fetchHomeData = async () => {
             try {
                 const [eventsRes, statsRes, membersRes] = await Promise.all([
-                    axios.get(`/api/events?status=Open`),
-                    axios.get(`/api/events/public-stats`),
-                    axios.get(`/api/auth/association-members`)
-                ]);
+    api.get(`/api/events?status=Open`),
+    api.get(`/api/events/public-stats`),
+    api.get(`/api/auth/association-members`)
+]);
                 setEvents(eventsRes.data.slice(0, 3));
                 setStats(statsRes.data);
                 const members = membersRes.data;
@@ -81,7 +82,10 @@ const Home = () => {
 
                 setAssociationMembers(filteredMembers);
             } catch (error) {
-                console.error('Failed to fetch home data');
+                console.error('Failed to fetch home data', error);
+                if (error.response && error.response.status === 401) {
+                    navigate('/login');
+                }
                 setStats({ totalEvents: 0, totalRegistrations: 0, totalAttendees: 0 });
                 setEvents([]);
                 setAssociationMembers([]);
