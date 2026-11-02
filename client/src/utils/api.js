@@ -1,28 +1,33 @@
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-// Central axios instance.
-// In dev: Vite proxies /api → localhost:5000 (see vite.config.js)
-// In production: Vercel rewrites /api → Render backend (see vercel.json)
-// No hardcoded URL needed anywhere.
+// Create an axios instance with base URL (relative to same origin)
 const api = axios.create({
-    baseURL: '',
-    withCredentials: false,
+  baseURL: '/', // All requests are relative to the root
+  // You can set default headers here if needed
 });
 
-// Attach JWT token to every request
+// Request interceptor to attach auth token if present
 api.interceptors.request.use((config) => {
-    try {
-        const userInfo = localStorage.getItem('userInfo');
-        if (userInfo) {
-            const { token } = JSON.parse(userInfo);
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-        }
-    } catch (e) {
-        // ignore
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
+// Response interceptor to handle unauthorized errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Clear token and redirect to login page
+      localStorage.removeItem('authToken');
+      // Use window location for redirection as we are outside React component
+      window.location.href = '/login';
     }
-    return config;
-});
+    return Promise.reject(error);
+  }
+);
 
 export default api;
