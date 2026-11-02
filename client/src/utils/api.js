@@ -1,61 +1,89 @@
 import axios from 'axios';
 
-// Create an axios instance with base URL (relative to same origin)
 const api = axios.create({
-  baseURL: '/', // All requests are relative to the root
-  // You can set default headers here if needed
+  baseURL: '/',
+  // withCredentials: true, // Uncomment if your auth also uses HTTP-only session cookies
 });
 
-// Request interceptor to attach auth token if present
-// Request interceptor to attach auth token if present and validate expiry
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  // Skip auth handling for login or token refresh endpoints
-  const skipUrls = ['/login', '/api/auth/refresh-token'];
-  if (skipUrls.some((url) => config.url && config.url.includes(url))) {
-    return config;
-  }
-  if (token) {
-    // Check token expiry (expects JWT with exp claim in seconds)
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.exp && payload.exp * 1000 < Date.now()) {
-        // Token expired - clean up and redirect
-        clearAuth();
-        window.location.href = '/login';
-        return config; // request will likely be aborted
-      }
-    } catch (e) {
-      // If decode fails, proceed with token as is
-    }
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => Promise.reject(error));
-
-// Helper to clear all authentication related storage
-function clearAuth() {
+// Helper to clear all authentication-related storage
+export function clearAuth() {
   localStorage.removeItem('authToken');
-  // Remove any other auth related keys if needed
   localStorage.removeItem('user');
   sessionStorage.clear();
-  // Clear auth cookie if set (example name authToken)
   document.cookie = 'authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 }
 
-// Response interceptor to handle unauthorized errors globally without loops
+// Redirect flag to prevent multiple concurrent requests from spamming window.location.href
+let isRedirecting = false;
+function redirectToLogin() {
+  clearAuth();
+  if (!isRedirecting && window.location.pathname !== '/login') {
+    isRedirecting = true;
+    window.location.href = '/login';
+  }
+}
+
+// Request interceptor: attach token and validate expiry
+api.interceptors.request.use(
+  (config) => {
+    const skipUrls = ['/login', '/api/auth/refresh-token'];
+    if (skipUrls.some((url) => config.url && config.url.includes(url))) {
+      return config;
+    }
+
+    const token = localStorage.getItem('authToken');
+
+    if (token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          throw new Error('Invalid JWT format');
+        }
+
+        // Decode Base64URL safely
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(decodeURIComponent(escape(atob(base64))));
+
+        // Check if token is expired (exp is in seconds)
+        if (payload.exp && payload.exp * 1000 <= Date.now()) {
+          redirectToLogin();
+          return Promise.reject(new axios.Cancel('Session expired. Redirecting to login...'));
+        }
+      } catch (err) {
+        // If the token is corrupted/unparseable, purge it rather than sending junk
+        redirectToLogin();
+        return Promise.reject(new axios.Cancel('Corrupt session token. Redirecting to login...'));
+      }
+
+      config.headers = config.headers || {};
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor: handle unexpected 401s globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const originalRequest = error.config || {};
-    const isLoginOrRefresh = originalRequest.url && (originalRequest.url.includes('/login') || originalRequest.url.includes('/refresh-token'));
-    if (!isLoginOrRefresh && error.response && error.response.status === 401) {
-      clearAuth();
-      window.location.href = '/login';
+    // If request was canceled by our request interceptor, pass through
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
     }
+
+    const originalRequest = error.config || {};
+    const isAuthRoute =
+      originalRequest.url &&
+      (originalRequest.url.includes('/login') || originalRequest.url.includes('/refresh-token'));
+
+    if (!isAuthRoute && error.response && error.response.status === 401) {
+      redirectToLogin();
+    }
+
     return Promise.reject(error);
   }
 );
-
 
 export default api;
