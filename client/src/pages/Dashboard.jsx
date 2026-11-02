@@ -1,7 +1,8 @@
 import { getImageUrl } from '../utils/imageUrl';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../utils/api';
 import { Link } from 'react-router-dom';
+const axios = api;
 import { useAuth } from '../context/AuthContext';
 import { downloadCertificateAsPDF } from '../utils/renderCertificateCanvas';
 import { downloadEventPass } from '../utils/eventPassUtils';
